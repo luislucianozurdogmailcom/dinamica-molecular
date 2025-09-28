@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 contenido   = 'output.dat'
-contenido_d = 'output_D.dat'
+contenido_2 = 'output_2.dat'
 
 def graficador(file):
 
@@ -30,4 +30,4 @@ def graficador(file):
     plt.savefig(f'{file}.pdf')
 
 graficador(contenido);
-# graficador(contenido_d);
+graficador(contenido_2);

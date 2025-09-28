@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "arrays_dinamicos.h"
 
 // Función lectura de datos input
 int input_reader(char* nombre_file){
@@ -69,6 +70,48 @@ int main() {
 
     fclose(file);
 
+    // Hacemos el punto D
+
+    // Instanciamos las variables en donde guardaremos la info
+    DynamicArray numeros_aleatorios_1;
+    DynamicArray numeros_aleatorios_2;
+
+    initArray(&numeros_aleatorios_1, int_cantidadNumeros);
+    initArray(&numeros_aleatorios_2, int_cantidadNumeros);
+
+    for (int i=0; i < int_cantidadNumeros; i++){
+        
+        // Generar dos números aleatorios entre 0 y 1
+        numeros_aleatorios[0] = (double)rand() / RAND_MAX;
+        numeros_aleatorios[1] = (double)rand() / RAND_MAX;
+
+        if (numeros_aleatorios[0] < numeros_aleatorios[1] && numeros_aleatorios[1] > 0.5){
+            insertArray(&numeros_aleatorios_1, numeros_aleatorios[0]);
+            insertArray(&numeros_aleatorios_2, numeros_aleatorios[1]);
+        }
+    }
+
+    // Liberamos memoria ajustando el vector al largo de los números almacenados
+    trimToSize(&numeros_aleatorios_1);
+    trimToSize(&numeros_aleatorios_2);
+
+    // Abrimos el archivo de salida
+    FILE *file_2 = fopen("output_2.dat","w"); // con 'a' agregamos al final
+
+    // Ponemos los nombres de las cabeceras
+    fprintf(file_2, "X Y\n");
+
+    // Iteramos sobre el largo de los vectores
+    for (int i=0; i<numeros_aleatorios_1.size; i++){
+        
+        // Guardamos la información en un archivo.
+        fprintf(file_2, "%f %f\n", numeros_aleatorios_1.array[i], numeros_aleatorios_2.array[i]);
+    }
+
+    freeArray(&numeros_aleatorios_1);
+    freeArray(&numeros_aleatorios_2);
+
+    fclose(file_2);
 
     return 0;
 }
