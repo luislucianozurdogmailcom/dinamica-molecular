@@ -6,9 +6,8 @@
 
 
 // Función encargada de leer el archivo input.c
-int lectura_input(){
+int lectura_input(char *texto){
     FILE *archivo;
-    char *texto = "input.dat";
 
     // "rb" es para leer archivos binarios y "r" normales
     archivo = fopen(texto,"r"); 
@@ -143,7 +142,7 @@ int bordeInfinito(int indice, int tamano){
 }
 
 // Medir energia
-int energia(int** matriz, int tamano, int J){
+double energia(int** matriz, int tamano, int J){
     
     // Función encargada de medir la energia total del
     // sistema de particulas 2D del modelo de izing
@@ -167,26 +166,102 @@ int energia(int** matriz, int tamano, int J){
         }
     }
 
-    valor = valor * (-J);
+    double valor_return = (double)(valor * (-J)) / 2;
 
-    return valor;
+    return valor_return;
 }
 
+// Cambio de estado spin_single_flip
+int** spinSingleFlip(int** matriz, int tamano){
+    // Función encargada de voltear al azar un solo spin de la matriz 
+    // de spines que tiene como entrada.
+    
+    // Creamos la matriz dinámica nueva
+    int** matrizNueva = (int**)malloc(tamano * sizeof(int*));
+
+    for(int i = 0; i < tamano; i++) {
+        matrizNueva[i] = (int*)malloc(tamano * sizeof(int));
+    }
+
+    // Copiamos los datos de la matriz original
+    for (int i = 0; i < tamano; i++) {
+        for (int j = 0; j < tamano; j++) {
+            matrizNueva[i][j] = matriz[i][j];
+        }
+    }
+
+    // Calculamos al azar la posición del Spin que cambiará
+    int fila = (int)round(uni()*tamano);
+    int colu = (int)round(uni()*tamano);
+
+    // Cambiamos el spin multiplicandoló por -1
+    matrizNueva[fila][colu] *= -1;
+
+    return matrizNueva;
+}
+
+// Aceptar o no el paso al siguiente estado
+int aceptabilidad(int** matriz, int** matrizNueva, double T){
+    // Función encargada de calcular la probabilidad de aprobar el cambio
+    // de estado de un estado al siguiente.
+    
+    // Constantes del calculo
+    double K          = 1.380649e-23;
+    double beta       = 1/(K*T);
+
+    // Energias
+    double energia       = energia(matriz);
+    double energiaNueva  = energia(matrizNueva);
+
+    // Dependiendo que energia tenga el nuevo estado, la probabilidad de cambio será diferente
+    if (energia > energiaNueva)
+    {
+        return 1; // se aprueba el estado de una ya que la energia es menor
+    }
+    else // Caso en el que la energia nueva es mayor que la energia anterior 
+    {
+        // Calculamos un número al azar entre 0 a 1.
+        probabilidad = uni();
+
+        // e^{beta*|Energia_nueva - Energia|}
+        if (probabilidad <= exp(beta*(abs(energia_nueva - energia)))) 
+        {
+            return 1; // Se aprueba el estado al lanzar la moneda
+        }
+        else 
+        {
+            return 0; // Se niega el cambio de estado por probabilidad
+        }
+    }
+}
 
 int main() {
 
     // Inicializamos ziggurat
     initialize_random();
 
+    // Leemos el tamaño de la grilla y la temperatura
+    int N    = lectura_input("N");
+    double T = lectura_input("T");
+
     // Creamos el dominio y lo llenamos con datos random
-    int tamano    = 30;
-    int** dominio = crearDominio(tamano);
+    int** dominio = crearDominio(N);
 
     // Calculamos su magnetización
-    printf("Su magnetización inicial es: %d \n", magnetizacion(dominio, tamano));
-    printf("Su magnetización media incial es: %f \n", magnetizacionMedia(dominio, tamano));
-    printf("Su energia incial es: %d \n", energia(dominio, tamano, 1));
+    printf("Su magnetización inicial es: %d \n", magnetizacion(dominio, N));
+    printf("Su magnetización media incial es: %f \n", magnetizacionMedia(dominio, N));
+    printf("Su energia incial es: %f \n", energia(dominio, N, 1));
 
+    // Bucle infinito
+    int** dominioFuturo;
+    for (;;){
+        dominioFuturo = spinSingleFlip(dominio);
+
+        if (aceptabilidad(dominio, dominioFuturo, T))
+        {
+            
+        }
+    }
 
     finalize_random();
     return 0;
