@@ -4,9 +4,13 @@
 #include <time.h>
 #include "ziggurat/ziggurat.h"
 
+// Biblios para crear carpetas
+#include <sys/stat.h>
+#include <sys/types.h>
+
 
 // Función encargada de leer el archivo input.c
-int lectura_input(char *texto){
+int LecturaInput(char *texto){
     FILE *archivo;
 
     // "rb" es para leer archivos binarios y "r" normales
@@ -34,7 +38,7 @@ int lectura_input(char *texto){
 }
 
 // Función encargada de escribir números (agregando no sobre escribiendo)
-void escritura_data(char *texto, double *numeros, int tamano){
+void EscrituraData(char *texto, double numero){
     FILE *archivo;
 
     // "rb" es para leer archivos binarios y "r" normales
@@ -46,19 +50,40 @@ void escritura_data(char *texto, double *numeros, int tamano){
         return;
     }
 
-    // Escribimos el archivo con el nuevo número aleatorio
-    for (int i=0; i < tamano; i++){
-
-        fprintf(archivo, "%f ", numeros[i]); 
-    }
+    fprintf(archivo, "%f ", numero); 
     
     fprintf(archivo, " \n ");
 
     fclose(archivo);
 }
 
+// Función encargada de escribir matrices para DEBUGGING
+void EscrituraMatriz(char *texto, int** matriz, int tamano){
+    FILE *archivo;
+
+    // Abrimos el archivo en modo escritura ("w") para sobrescribir el contenido
+    archivo = fopen(texto, "a");
+
+    // Chequeo de errores
+    if (archivo == NULL) {
+        printf("Error al abrir el archivo %s \n", texto);
+        return;
+    }
+
+    // Escribimos la matriz en el archivo
+    for (int i = 0; i < tamano; i++) {
+        for (int j = 0; j < tamano; j++) {
+            fprintf(archivo, "%d ", matriz[i][j]);
+        }
+        fprintf(archivo, "\n"); // Nueva línea al final de cada fila
+    }
+    fprintf(archivo, "\n\n\n");
+
+    fclose(archivo);
+}
+
 // Inicializar el dominio
-int** crearDominio(int N){
+int** CrearDominio(int N){
     // Reserva memoria dinámica para una matriz de punteros a double, 
     // donde cada puntero representará una fila de la matriz de tamaño N.
     // Creará una matriz de NxN con valores al azar entre 0 y 1 en cada 
@@ -74,7 +99,12 @@ int** crearDominio(int N){
     {
         for (int j = 0; j < N; j++)
         {
-            matriz[i][j] = (int)round(uni()); // Numero al azar redondeado a 0 o 1
+            if (uni() < 0.5){
+                matriz[i][j] = -1;
+            }
+            else{
+                matriz[i][j] = 1;
+            }
         }    
     }
 
@@ -82,7 +112,7 @@ int** crearDominio(int N){
 }
 
 // Medir magnetización
-int magnetizacion(int** matriz, int tamano){
+int Magnetizacion(int** matriz, int tamano){
     
     //Función encargada de medir la magnetización del sistema en su totalidad
     //como magnitud física definida para un número finito de particulas en nuestra
@@ -100,7 +130,7 @@ int magnetizacion(int** matriz, int tamano){
 }
 
 // Medir magnetización media
-double magnetizacionMedia(int** matriz, int tamano){
+double MagnetizacionMedia(int** matriz, int tamano){
     
     //Función encargada de medir la magnetización del sistema en su totalidad
     //como magnitud física definida para un número finito de particulas en nuestra
@@ -120,7 +150,7 @@ double magnetizacionMedia(int** matriz, int tamano){
 }
 
 // Función para no salirnos de límites de matrices
-int bordeInfinito(int indice, int tamano){
+int BordeInfinito(int indice, int tamano){
     
     // Esta función está encargada de hacer que nuestros índices no se
     // salgan de los bordes de nuestras matrices. Esto nos ayuda a implementar
@@ -142,124 +172,128 @@ int bordeInfinito(int indice, int tamano){
 }
 
 // Medir energia
-double energia(int** matriz, int tamano, int J){
+int Energia(int** matriz, int tamano, double J){
     
     // Función encargada de medir la energia total del
     // sistema de particulas 2D del modelo de izing
 
-    int valor, iPlus1, iMinus1, jPlus1, jMinus1;
-
+    int iPlus1, iMinus1, jPlus1, jMinus1;
+    int valor = 0; 
+    
+    // 
     for ( int i = 0; i < tamano; i++){
         for( int j = 0; j < tamano; j++){
             
-            iPlus1  = bordeInfinito(i+1, tamano);
-            iMinus1 = bordeInfinito(i-1, tamano);
-            jPlus1  = bordeInfinito(i+1, tamano);
-            jMinus1 = bordeInfinito(i-1, tamano);
+            iPlus1  = BordeInfinito(i+1, tamano);
+            iMinus1 = BordeInfinito(i-1, tamano);
+            jPlus1  = BordeInfinito(j+1, tamano);
+            jMinus1 = BordeInfinito(j-1, tamano);
 
-            valor = valor\ 
-                  + matriz[i][j] * matriz[iPlus1][j] \
-                  + matriz[i][j] * matriz[iMinus1][j] \
-                  + matriz[i][j] * matriz[i][jPlus1] \
-                  + matriz[i][j] * matriz[i][jMinus1];
+            valor = valor + matriz[i][j] * (
+                  + matriz[iPlus1][j] 
+                  + matriz[iMinus1][j] 
+                  + matriz[i][jPlus1] 
+                  + matriz[i][jMinus1]);
 
         }
     }
 
-    double valor_return = (double)(valor * (-J)) / 2;
+    valor = valor * (int)(-J) / 2;
 
-    return valor_return;
+    return valor;
 }
 
-// Cambio de estado spin_single_flip
-int** spinSingleFlip(int** matriz, int tamano){
-    // Función encargada de voltear al azar un solo spin de la matriz 
-    // de spines que tiene como entrada.
-    
-    // Creamos la matriz dinámica nueva
-    int** matrizNueva = (int**)malloc(tamano * sizeof(int*));
 
-    for(int i = 0; i < tamano; i++) {
-        matrizNueva[i] = (int*)malloc(tamano * sizeof(int));
-    }
-
-    // Copiamos los datos de la matriz original
-    for (int i = 0; i < tamano; i++) {
-        for (int j = 0; j < tamano; j++) {
-            matrizNueva[i][j] = matriz[i][j];
-        }
-    }
-
-    // Calculamos al azar la posición del Spin que cambiará
-    int fila = (int)round(uni()*tamano);
-    int colu = (int)round(uni()*tamano);
-
-    // Cambiamos el spin multiplicandoló por -1
-    matrizNueva[fila][colu] *= -1;
-
-    return matrizNueva;
-}
-
-// Aceptar o no el paso al siguiente estado
-int aceptabilidad(int** matriz, int** matrizNueva, double T){
-    // Función encargada de calcular la probabilidad de aprobar el cambio
-    // de estado de un estado al siguiente.
-    
-    // Constantes del calculo
-    double K          = 1.380649e-23;
-    double beta       = 1/(K*T);
-
-    // Energias
-    double energia       = energia(matriz);
-    double energiaNueva  = energia(matrizNueva);
-
-    // Dependiendo que energia tenga el nuevo estado, la probabilidad de cambio será diferente
-    if (energia > energiaNueva)
-    {
-        return 1; // se aprueba el estado de una ya que la energia es menor
-    }
-    else // Caso en el que la energia nueva es mayor que la energia anterior 
-    {
-        // Calculamos un número al azar entre 0 a 1.
-        probabilidad = uni();
-
-        // e^{beta*|Energia_nueva - Energia|}
-        if (probabilidad <= exp(beta*(abs(energia_nueva - energia)))) 
-        {
-            return 1; // Se aprueba el estado al lanzar la moneda
-        }
-        else 
-        {
-            return 0; // Se niega el cambio de estado por probabilidad
-        }
+void crearCarpeta(char *texto){
+    // Crear la carpeta con permisos 0755 (lectura, escritura, ejecución para el propietario)
+    if (mkdir(texto, 0755) == 0) {
+        printf("Carpeta creada exitosamente\n");
+    } else {
+        perror("Error al crear la carpeta");
     }
 }
 
+// Rutina principal
 int main() {
 
     // Inicializamos ziggurat
     initialize_random();
 
-    // Leemos el tamaño de la grilla y la temperatura
-    int N    = lectura_input("N");
-    double T = lectura_input("T");
+    // crear carpeta
+    crearCarpeta("output");
+
+    // Leemos el tamaño de la grilla y otros datos
+    int N           = LecturaInput("input/N");
+    double T        = LecturaInput("input/T");
+    double J        = LecturaInput("input/J");
+    double K        = LecturaInput("input/K");
+    int muestreo    = LecturaInput("input/muestreo");
+    int iteraciones = LecturaInput("input/iteraciones");
 
     // Creamos el dominio y lo llenamos con datos random
-    int** dominio = crearDominio(N);
+    int** dominio = CrearDominio(N);
 
-    // Calculamos su magnetización
-    printf("Su magnetización inicial es: %d \n", magnetizacion(dominio, N));
-    printf("Su magnetización media incial es: %f \n", magnetizacionMedia(dominio, N));
-    printf("Su energia incial es: %f \n", energia(dominio, N, 1));
+    // Variables donde almacenaremos datos
+    int magnetizacion          = Magnetizacion(dominio, N);
+    double magnetizacionMedia  = MagnetizacionMedia(dominio, N);
+    int energia                = Energia(dominio, N, J);
+    int deltaEnergia           = 0; // Salto energético
+
+    // Valores al azar de la posición del Spin que cambiará
+    int fila;
+    int colu;
+
+    // Valores de cálculo durante el loop
+    double beta;
+    double probabilidad;
 
     // Bucle infinito
-    int** dominioFuturo;
-    for (;;){
-        dominioFuturo = spinSingleFlip(dominio);
+    for (int i=0; i < iteraciones; i++){
 
-        if (aceptabilidad(dominio, dominioFuturo, T))
-        {
+        // Calculos de muestreo para registrar datos
+        if( i % muestreo == 0){
+            EscrituraData("output/energia.dat", energia);
+            EscrituraData("output/magnetizacionMedia.dat", magnetizacionMedia);  
+            EscrituraData("output/magnetizacion.dat", magnetizacion);
+        }
+
+        fila = (int)floor(uni()*N);
+        colu = (int)floor(uni()*N);
+
+        // Calculamos el salto de energia al flipear el spin con J positivo
+        deltaEnergia = (int)J * dominio[fila][colu] * (
+                                dominio[BordeInfinito(fila+1, N)][colu] +
+                                dominio[BordeInfinito(fila-1, N)][colu] +
+                                dominio[fila][BordeInfinito(colu+1, N)] +
+                                dominio[fila][BordeInfinito(colu-1, N)]
+                            ) * 2;
+
+        if (deltaEnergia < 0){   
+            // Aceptamos el cambio de estado
+            dominio[fila][colu] *= -1; // Flipeamos el spin
+            energia             += deltaEnergia; // Reasignamos la energia
+            magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
+            magnetizacionMedia  = (double)magnetizacion / (N*N);
+        }
+        else if (deltaEnergia > 0){ // Calculamos la probabilidad de aceptación
             
+            beta         = 1/(K*T);
+            probabilidad = exp(-beta*deltaEnergia);
+
+            if (uni() < probabilidad){
+
+                dominio[fila][colu] *= -1; // Aceptamos el cambio de estado
+                energia             += deltaEnergia; // Reasignamos las energias
+                magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
+                magnetizacionMedia  = (double)magnetizacion / (N*N);
+            }
+        }
+        else { // Caso si la energia en el cambio es igual a la energia anterior
+
+            // Aceptamos el cambio de estado
+            dominio[fila][colu] *= -1;
+            magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
+            magnetizacionMedia  = (double)magnetizacion / (N*N);
         }
     }
 
