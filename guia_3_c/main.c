@@ -9,8 +9,8 @@
 #include <sys/types.h>
 
 
-// Función encargada de leer el archivo input.c
-int LecturaInput(char *texto){
+// Función encargada de leer archivos de entrada con datos INT
+int LecturaInputInt(char *texto){
     FILE *archivo;
 
     // "rb" es para leer archivos binarios y "r" normales
@@ -27,6 +27,34 @@ int LecturaInput(char *texto){
 
     // Leemos el numero int del archivo
     if (fscanf(archivo, "%d", &valor) != 1) {
+        printf("Error al leer el valor del archivo %s\n", texto);
+        fclose(archivo);
+        return 1;  // Return default seed value
+    }
+
+    fclose(archivo);
+
+    return valor;
+}
+
+// Función encargada de leer archivos de entrada con datos DOUBLE
+double LecturaInputDouble(char *texto){
+    FILE *archivo;
+
+    // "rb" es para leer archivos binarios y "r" normales
+    archivo = fopen(texto,"r"); 
+
+    // Chequeo de errores
+    if (archivo == NULL){
+        printf("Error al abrir el archivo %s \n", texto);
+        return 1;
+    }
+
+    // Variables para almacenar los datos
+    double valor = 0.0;
+
+    // Leemos el numero int del archivo
+    if (fscanf(archivo, "%lf", &valor) != 1) {
         printf("Error al leer el valor del archivo %s\n", texto);
         fclose(archivo);
         return 1;  // Return default seed value
@@ -203,14 +231,17 @@ int Energia(int** matriz, int tamano, double J){
     return valor;
 }
 
+char* NombreArchivo(char *texto, double T, int iteracion){
+    /* Función encargada de fabricar el nombre del archivo con 
+    los subindices necesarios para identificar al archivo y en que 
+    carpeta irá alojado*/
 
-void crearCarpeta(char *texto){
-    // Crear la carpeta con permisos 0755 (lectura, escritura, ejecución para el propietario)
-    if (mkdir(texto, 0755) == 0) {
-        printf("Carpeta creada exitosamente\n");
-    } else {
-        perror("Error al crear la carpeta");
-    }
+    // Creamos el nombre del archivo
+    char *nombreArchivo = (char*)malloc(256 * sizeof(char));
+    sprintf(nombreArchivo, "output/T_%.4f/%d_%s", T, iteracion, texto);
+
+    // Retornamos
+    return nombreArchivo;
 }
 
 // Rutina principal
@@ -219,16 +250,14 @@ int main() {
     // Inicializamos ziggurat
     initialize_random();
 
-    // crear carpeta
-    crearCarpeta("output");
-
     // Leemos el tamaño de la grilla y otros datos
-    int N           = LecturaInput("input/N");
-    double T        = LecturaInput("input/T");
-    double J        = LecturaInput("input/J");
-    double K        = LecturaInput("input/K");
-    int muestreo    = LecturaInput("input/muestreo");
-    int iteraciones = LecturaInput("input/iteraciones");
+    int N                = LecturaInputInt("input/N");
+    double T             = LecturaInputDouble("input/T");
+    double J             = LecturaInputInt("input/J");
+    double K             = LecturaInputInt("input/K");
+    int muestreo         = LecturaInputInt("input/muestreo");
+    int iteraciones      = LecturaInputInt("input/iteraciones");
+    int simulacionesPorT = LecturaInputInt("input/simulaciones_por_cada_T");
 
     // Creamos el dominio y lo llenamos con datos random
     int** dominio = CrearDominio(N);
@@ -246,54 +275,59 @@ int main() {
     // Valores de cálculo durante el loop
     double beta;
     double probabilidad;
+    
+    // Bucle de iteraciones repetidas
+    for (int j=0; j < simulacionesPorT; j++){
 
-    // Bucle infinito
-    for (int i=0; i < iteraciones; i++){
+        printf("%f\n",T);
+        // Bucle principal
+        for (int i=0; i < iteraciones; i++){
+            
+            // Calculos de muestreo para registrar datos
+            if( i % muestreo == 0){
 
-        // Calculos de muestreo para registrar datos
-        if( i % muestreo == 0){
-            EscrituraData("output/energia.dat", energia);
-            EscrituraData("output/magnetizacionMedia.dat", magnetizacionMedia);  
-            EscrituraData("output/magnetizacion.dat", magnetizacion);
-        }
-
-        fila = (int)floor(uni()*N);
-        colu = (int)floor(uni()*N);
-
-        // Calculamos el salto de energia al flipear el spin con J positivo
-        deltaEnergia = (int)J * dominio[fila][colu] * (
+                EscrituraData(NombreArchivo("energia.dat",T,j), energia);
+                EscrituraData(NombreArchivo("magnetizacionMedia.dat",T,j), magnetizacionMedia);  
+            }
+            
+            fila = (int)floor(uni()*N);
+            colu = (int)floor(uni()*N);
+            
+            // Calculamos el salto de energia al flipear el spin con J positivo
+            deltaEnergia = (int)J * dominio[fila][colu] * (
                                 dominio[BordeInfinito(fila+1, N)][colu] +
                                 dominio[BordeInfinito(fila-1, N)][colu] +
                                 dominio[fila][BordeInfinito(colu+1, N)] +
                                 dominio[fila][BordeInfinito(colu-1, N)]
                             ) * 2;
-
-        if (deltaEnergia < 0){   
-            // Aceptamos el cambio de estado
-            dominio[fila][colu] *= -1; // Flipeamos el spin
-            energia             += deltaEnergia; // Reasignamos la energia
-            magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
-            magnetizacionMedia  = (double)magnetizacion / (N*N);
-        }
-        else if (deltaEnergia > 0){ // Calculamos la probabilidad de aceptación
-            
-            beta         = 1/(K*T);
-            probabilidad = exp(-beta*deltaEnergia);
-
-            if (uni() < probabilidad){
-
-                dominio[fila][colu] *= -1; // Aceptamos el cambio de estado
-                energia             += deltaEnergia; // Reasignamos las energias
+                            
+            if (deltaEnergia < 0){   
+                // Aceptamos el cambio de estado
+                dominio[fila][colu] *= -1; // Flipeamos el spin
+                energia             += deltaEnergia; // Reasignamos la energia
                 magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
-                magnetizacionMedia  = (double)magnetizacion / (N*N);
+                magnetizacionMedia  = (double)magnetizacion / (N*N); // Calculamos la magnetización media
             }
-        }
-        else { // Caso si la energia en el cambio es igual a la energia anterior
-
-            // Aceptamos el cambio de estado
-            dominio[fila][colu] *= -1;
-            magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
-            magnetizacionMedia  = (double)magnetizacion / (N*N);
+            else if (deltaEnergia > 0){ // Calculamos la probabilidad de aceptación
+                
+                beta         = 1/(K*T);
+                probabilidad = exp(-beta*deltaEnergia);
+                
+                if (uni() < probabilidad){
+                    
+                    dominio[fila][colu] *= -1; // Aceptamos el cambio de estado
+                    energia             += deltaEnergia; // Reasignamos las energias
+                    magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
+                    magnetizacionMedia  = (double)magnetizacion / (N*N); // Calculamos la magnetización media
+                }
+            }
+            else { // Caso si la energia en el cambio es igual a la energia anterior
+                
+                // Aceptamos el cambio de estado
+                dominio[fila][colu] *= -1;
+                magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
+                magnetizacionMedia  = (double)magnetizacion / (N*N); // Calculamos la magnetización media
+            }
         }
     }
 

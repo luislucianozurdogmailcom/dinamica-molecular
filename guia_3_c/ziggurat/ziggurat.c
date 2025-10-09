@@ -68,7 +68,7 @@ void seed_write(){
 
     // Obtener la fecha y hora actual como un time_t (normalmente es un int de 32 bits)
     time_t tiempo_actual = time(NULL);
-    int32_t seed_value   = (int32_t)tiempo_actual; // Casteamos a int 32 bits
+    int32_t seed_value   = shr3((int32_t)tiempo_actual); // Casteamos a int 32 bits
 
     // Chequeo de errores
     if (archivo == NULL){
