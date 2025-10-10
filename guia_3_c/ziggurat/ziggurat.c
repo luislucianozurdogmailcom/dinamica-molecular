@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <sys/time.h>  // línea para gettimeofday
 #include "ziggurat.h"
 
 // Definiciones de las variables (añadir al inicio del archivo)
@@ -66,9 +67,14 @@ void seed_write(){
     // "rb" es para leer archivos binarios y "r" normales
     archivo = fopen(texto,"w"); 
 
-    // Obtener la fecha y hora actual como un time_t (normalmente es un int de 32 bits)
-    time_t tiempo_actual = time(NULL);
-    int32_t seed_value   = shr3((int32_t)tiempo_actual); // Casteamos a int 32 bits
+    // Obtener la fecha y hora actual con precisión de microsegundos
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    // Convertir a milisegundos: segundos * 1000 + microsegundos / 1000
+    long long tiempo_millis = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
+
+    int32_t seed_value = shr3((int32_t)tiempo_millis); // Casteamos a int 32 bits
 
     // Chequeo de errores
     if (archivo == NULL){

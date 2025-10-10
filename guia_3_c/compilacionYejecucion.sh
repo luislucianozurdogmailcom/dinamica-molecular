@@ -13,7 +13,7 @@ mkdir output
 # Hacemos un bucle por cada T
 for ((i=1; i<=20; i++)); do
     
-    T=$(LC_NUMERIC=C printf "%.4f" $(echo "scale=4; 5/$i" | bc))
+    T=$(LC_NUMERIC=C printf "%.4f" $(echo "scale=4; $i/5" | bc))
     echo "Contador: T = $T"
 
     mkdir "output/T_$T"

@@ -158,7 +158,7 @@ int Magnetizacion(int** matriz, int tamano){
 }
 
 // Medir magnetización media
-double MagnetizacionMedia(int** matriz, int tamano){
+double MagnetizacionNormalizada(int** matriz, int tamano){
     
     //Función encargada de medir la magnetización del sistema en su totalidad
     //como magnitud física definida para un número finito de particulas en nuestra
@@ -263,10 +263,10 @@ int main() {
     int** dominio = CrearDominio(N);
 
     // Variables donde almacenaremos datos
-    int magnetizacion          = Magnetizacion(dominio, N);
-    double magnetizacionMedia  = MagnetizacionMedia(dominio, N);
-    int energia                = Energia(dominio, N, J);
-    int deltaEnergia           = 0; // Salto energético
+    int magnetizacion               = Magnetizacion(dominio, N);
+    double magnetizacionNormalizada = MagnetizacionNormalizada(dominio, N);
+    int energia                     = Energia(dominio, N, J);
+    int deltaEnergia                = 0; // Salto energético
 
     // Valores al azar de la posición del Spin que cambiará
     int fila;
@@ -284,10 +284,15 @@ int main() {
         for (int i=0; i < iteraciones; i++){
             
             // Calculos de muestreo para registrar datos
-            if( i % muestreo == 0){
+            if( i % muestreo == 0 && j != 0){
 
                 EscrituraData(NombreArchivo("energia.dat",T,j), energia);
-                EscrituraData(NombreArchivo("magnetizacionMedia.dat",T,j), magnetizacionMedia);  
+                EscrituraData(NombreArchivo("magnetizacionNormalizada.dat",T,j), magnetizacionNormalizada);  
+            }
+            else if( i % muestreo == 0 && j == 0){ // Registro de datos de termalización
+
+                EscrituraData(NombreArchivo("termalizacion_energia",T,j), energia);
+                EscrituraData(NombreArchivo("termalización_magnetizacionNormalizada.dat",T,j), magnetizacionNormalizada);  
             }
             
             fila = (int)floor(uni()*N);
@@ -303,10 +308,10 @@ int main() {
                             
             if (deltaEnergia < 0){   
                 // Aceptamos el cambio de estado
-                dominio[fila][colu] *= -1; // Flipeamos el spin
-                energia             += deltaEnergia; // Reasignamos la energia
-                magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
-                magnetizacionMedia  = (double)magnetizacion / (N*N); // Calculamos la magnetización media
+                dominio[fila][colu]      *= -1; // Flipeamos el spin
+                energia                  += deltaEnergia; // Reasignamos la energia
+                magnetizacion            += dominio[fila][colu] * 2; // Reasignamos la magnetización
+                magnetizacionNormalizada = (double)magnetizacion / (N*N); // Calculamos la magnetización media
             }
             else if (deltaEnergia > 0){ // Calculamos la probabilidad de aceptación
                 
@@ -315,18 +320,18 @@ int main() {
                 
                 if (uni() < probabilidad){
                     
-                    dominio[fila][colu] *= -1; // Aceptamos el cambio de estado
-                    energia             += deltaEnergia; // Reasignamos las energias
-                    magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
-                    magnetizacionMedia  = (double)magnetizacion / (N*N); // Calculamos la magnetización media
+                    dominio[fila][colu]     *= -1; // Aceptamos el cambio de estado
+                    energia                 += deltaEnergia; // Reasignamos las energias
+                    magnetizacion           += dominio[fila][colu] * 2; // Reasignamos la magnetización
+                    magnetizacionNormalizada = (double)magnetizacion / (N*N); // Calculamos la magnetización media
                 }
             }
             else { // Caso si la energia en el cambio es igual a la energia anterior
                 
                 // Aceptamos el cambio de estado
-                dominio[fila][colu] *= -1;
-                magnetizacion       += dominio[fila][colu] * 2; // Reasignamos la magnetización
-                magnetizacionMedia  = (double)magnetizacion / (N*N); // Calculamos la magnetización media
+                dominio[fila][colu]     *= -1;
+                magnetizacion           += dominio[fila][colu] * 2; // Reasignamos la magnetización
+                magnetizacionNormalizada = (double)magnetizacion / (N*N); // Calculamos la magnetización media
             }
         }
     }
