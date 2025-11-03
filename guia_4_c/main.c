@@ -132,62 +132,70 @@ double** CrearMatriz(int N, int dim, double L){
 }
 
 // Crear e inicializar matriz de distancias
-double** CrearMatrizDistanciasCuadrado(int N, int dim, double** R){
+double** TensorDistancias(int N, int dim){
+
     // Crea la matriz de distancias entre partículas al cuadrado
-    
     double** matriz = (double**)malloc(N * sizeof(double*)); 
     for(int i = 0; i < N; i++) {
         matriz[i] = (double*)malloc(N * sizeof(double));
     }
 
-    // Variable auxiliar
-    double distanciaCuadrada = 0;
-
-    // Lógica de calcular la distancia al cuadrado solo para las partículas que estan 
-    // por encima de la diagonal de la matriz de distancias cuadradas.
     for (int j = 0; j < N; j++)
     {
         for (int i = 0; i < j; i++)
         {
-            // Reseteamos la distancia para cada par de partículas
-            distanciaCuadrada = 0;
-
-            // Calculo de las tres dimensiones para cada partícula
-            for(int k = 0; k < dim; k++){
-
-                distanciaCuadrada += pow( R[k][i] - R[k][j] ,2);
-            }
-
-            // Guardamos la distancia cuadrada en la matriz.
-            matriz[j][i] = distanciaCuadrada;
+            matriz[j][i] = 0;
         }    
     }
 
     return matriz;
 }
 
-// Potencial de Lennard-Jones
-double EnergiaPotencialLJ(double epsilon, double sigma, double** Rcuadrado, int N, int dim, double Reff){
-    // Epsilon es la medida del pozo de potencial y da cuenta de la 
-    // intensidad de la interacción.
-    // Sigma es una medida del diámetro efectivo de las particulas
-    // R Es la matriz de posiciones de las partículas.
-    // N y dim son las constantes de las partículas y las dimensiones espaciales.
-    double energia = 0;
+// Crear e inicializar matriz de fuerzas
+double*** TensorFuerzas(int N, int dim){
+    // Crea la matriz de fuerzas entre partículas y almacena cada componente
+    // x, y z de la fuerza
 
-    for (int particula1 = 0; particula1 < N; particula1++){
+    double*** matriz3D = (double***)malloc(N * sizeof(double**)); 
+    
+    for(int i = 0; i < N; i++) {
         
-        for (int particula2 = 0; particula2 < particula1; particula2){
+        matriz3D[i] = (double**)malloc(N * sizeof(double*));
 
-            // Si la distancia es mayor a la efectiva, no computamos la energía de interacción
-            if (Reff < Rcuadrado[particula1][particula2]){continue;}
-
-            // Potencial de Lennard-Jones
-            energia += 4 * epsilon * ( - ( pow(sigma,6) ) / ( pow(Rcuadrado[particula1][particula2] ,3) ) + ( pow(sigma, 12) / pow(Rcuadrado[particula1][particula2], 6) ) );
+        for (int j = 0; j < N; j++){
+            matriz3D[i][j] = (double*)malloc(dim*sizeof(double));
         }
     }
 
-    return energia;
+    // Reseteamos matriz
+    for (int j = 0; j < N; j++)
+    {
+        for (int i = 0; i < j; i++)
+        {
+            for (int k = 0; k < dim; k++)
+            matriz3D[j][i][k] = 0;
+        }    
+    }
+
+    return matriz3D;
+}
+
+// Potencial de Lennard-Jones
+double PotencialLJ(double epsilon, double sigma, double distancia){
+    // Epsilon es la medida del pozo de potencial y da cuenta de la 
+    // intensidad de la interacción.
+    // Sigma es una medida del diámetro efectivo de las particulas
+    
+    return 4 * epsilon * ( - ( pow( sigma / distancia, 6) ) + ( pow( sigma / distancia, 12) ) );
+}
+
+// Derivada en r del Potencial de Lennard-Jones
+double DerivadaPotencialLJ(double epsilon, double sigma, double distancia){
+    // Epsilon es la medida del pozo de potencial y da cuenta de la 
+    // intensidad de la interacción.
+    // Sigma es una medida del diámetro efectivo de las particulas
+    
+    return 4 * epsilon * ( 6 * ( pow( sigma, 6 ) / pow( distancia, 7 ) ) - 12 * ( pow( sigma, 12) / pow(distancia, 13) ) );
 }
 
 
@@ -212,7 +220,7 @@ int main() {
 
     // Leemos los archivos de entrada
     int N          = LecturaInputInt("input/N");          // Cantidad de partículas 
-    int dim        = 3;                                   // Dimensiones espaciales
+    int dim        = LecturaInputInt("input/dim");        // Dimensiones espaciales
     double L       = LecturaInputDouble("input/L");       // Lado de caja cúbica
     double Reff    = LecturaInputDouble("input/Reff");    // Radio efectivo de partícula
     double epsilon = LecturaInputDouble("input/epsilon"); // Epsilon
@@ -224,39 +232,53 @@ int main() {
     double** V = CrearMatriz(N, dim, L); // Vector de velocidades
     double** F = CrearMatriz(N, dim, L); // Vector de Fuerzas
 
+    // Inicializamos los tensores
+    double**  Tr = TensorDistancias(N, dim); // Tensor que almacena las distancias entre particulas
+    double*** Tf = TensorFuerzas(N, dim);    // Tensor que almacena las fuerzas entre partículas
 
     // Variables necesarias durante las iteraciones
-    double distanciaCuadrada = 0;
-    double energia           = 0;
+    double distancia = 0;
+    double potencial = 0;
 
     // Iteramos por cada par de partículas
     for (int particula1 = 0; particula1 < N; particula1++){
 
+        // Comparacion entre particula 1 y las demas
         for (int particula2 = 0; particula2 < particula1; particula2 ++){
 
             // Reseteamos la distancia para cada par de partículas
-            distanciaCuadrada = 0;
+            distancia = 0;
+            potencial = 0;
 
-            // Calculo de las tres dimensiones para cada partícula
+            // Calculo de la distancia para la dimensiones de cada par de partículas
             for(int k = 0; k < dim; k++){
 
-                distanciaCuadrada += pow( R[k][particula1] - R[k][particula2] ,2);
+                distancia += pow( R[k][particula1] - R[k][particula2] ,2);
             }
+            distancia = pow(distancia, 0.5);
+
+            // Almaceno la distancia en el tensor:
+            Tr[particula1][particula2] = distancia;
 
             // Cálculo del potencial de lennard-Jones ----------------------------------------
-            // Si la distancia es mayor a la efectiva, no computamos la energía de interacción
-            if (Reff > distanciaCuadrada){
-                
-                // Potencial de Lennard-Jones
-                energia += 4 * epsilon * ( - ( pow(sigma,6) ) / ( pow(distanciaCuadrada ,3) ) + ( pow(sigma, 12) / pow(distanciaCuadrada, 6) ) );
+            // Si la distancia es mayor a la efectiva, no computamos la energía de interacción ni la fuerza
+            if (Reff < distancia){
+                continue;    
             }
-
-            // Cálculo de la fuerza total sobre cada partícula
             
+            // Potencial de Lennard-Jones
+            potencial = PotencialLJ(epsilon, sigma, distancia);
 
+            // Fuerzas que siente la partícula en cada eje 
+            for(int k = 0; k < dim; k++){
+
+                // Almacenamos la fuerza en el tensor
+                Tf[particula1][particula2][k] += - ( ( R[k][particula2] - R[k][particula1] )  / distancia ) * DerivadaPotencialLJ(epsilon, sigma, distancia);
+            }
         }
     }
 
+    // Con tensores calculados ahora hay que hacer:
 
     
     finalize_random();
