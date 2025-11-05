@@ -2,6 +2,7 @@ clear
 
 echo "Borramos la carpeta anteriormente generada..."
 rm -r output
+rm -r frames
 
 echo "Compilando con optimizaciones para código científico...."
 
@@ -19,5 +20,8 @@ mkdir output
 
 # Corremos el programa
 ./main
+
+# Graficamos
+python3 graficador.py
 
 echo "Finaliza el programa"

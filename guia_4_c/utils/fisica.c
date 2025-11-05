@@ -176,12 +176,15 @@ double*** TensorNND(int N, int dim){
 }
 
 // Potencial de Lennard-Jones
-double PotencialLJ(double epsilon, double sigma, double distancia){
+double PotencialLJ(double epsilon, double sigma, double distancia, double rcut){
     // Epsilon es la medida del pozo de potencial y da cuenta de la 
     // intensidad de la interacción.
     // Sigma es una medida del diámetro efectivo de las particulas
     
-    return 4 * epsilon * ( - ( pow( sigma / distancia, 6) ) + ( pow( sigma / distancia, 12) ) );
+    // Potencial del cutoff para evitar discontinuidades
+    double potencialCut = - 4 * epsilon * ( - ( pow( sigma / rcut, 6) ) + ( pow( sigma / rcut, 12) ) );
+
+    return 4 * epsilon * ( - ( pow( sigma / distancia, 6) ) + ( pow( sigma / distancia, 12) ) ) + potencialCut;
 }
 
 // Derivada en r del Potencial de Lennard-Jones
@@ -190,26 +193,53 @@ double DerivadaPotencialLJ(double epsilon, double sigma, double distancia){
     // intensidad de la interacción.
     // Sigma es una medida del diámetro efectivo de las particulas
     
+
+    
     return 4 * epsilon * ( 6 * ( pow( sigma, 6 ) / pow( distancia, 7 ) ) - 12 * ( pow( sigma, 12) / pow(distancia, 13) ) );
 }
 
 // Calcula las fuerzas entre partículas y llena los tensores correspondientes
-void FuerzasEntreParticulas(int particula1, int particula2, double*** tensorFuerzas, double*** tensorPosiciones, double** tensorDistancias, double epsilon, double sigma, int dim){
-    // Fuerzas que siente la partícula en cada eje por par de partículas
-
-    for(int k = 0; k < dim; k++){
-        // Almacenamos la fuerza en el tensor
-        
-        // Encima de la diagonal de la matriz con el signo positivo
-        tensorFuerzas[particula1][particula2][k] = - ( tensorPosiciones[particula1][particula2][k]  / tensorDistancias[particula1][particula2] ) * DerivadaPotencialLJ(epsilon, sigma, tensorDistancias[particula1][particula2]); 
-        
-        // Debajo de la diagonal de la matriz signo cambiado debido a que es la reacción de la otra partícula
-        tensorFuerzas[particula2][particula1][k] = - tensorFuerzas[particula1][particula2][k];
+void FuerzasEntreParticulas(int particula1, 
+                            int particula2, 
+                            double*** tensorFuerzas, 
+                            double*** tensorPosiciones, 
+                            double** tensorDistancias, 
+                            double epsilon, 
+                            double sigma, 
+                            int dim, 
+                            double reff){
+    
+    if(reff > tensorDistancias[particula1][particula2]) // Dentro del radio cutoff
+    { 
+        // Fuerzas que siente la partícula en cada eje por par de partículas
+        for(int k = 0; k < dim; k++){
+            // Almacenamos la fuerza en el tensor
+            
+            // Encima de la diagonal de la matriz con el signo positivo
+            tensorFuerzas[particula1][particula2][k] = - ( tensorPosiciones[particula1][particula2][k]  / tensorDistancias[particula1][particula2] ) * DerivadaPotencialLJ(epsilon, sigma, tensorDistancias[particula1][particula2]); 
+            
+            // Debajo de la diagonal de la matriz signo cambiado debido a que es la reacción de la otra partícula
+            tensorFuerzas[particula2][particula1][k] = - tensorFuerzas[particula1][particula2][k];
+        }
+    }
+    else // Fuera del radio cutoff
+    {
+        // Fuerzas que siente la partícula en cada eje por par de partículas
+        for(int k = 0; k < dim; k++){
+            // Almacenamos la fuerza en el tensor
+            tensorFuerzas[particula1][particula2][k] = 0;
+            tensorFuerzas[particula2][particula1][k] = 0;
+        }
     }
 }
 
 // Calcula las distancias entre partículas y llena los tensores correspondientes
-void DistanciasEntreParticulas(int particula1, int particula2, double*** tensorPosiciones, double** tensorDistancias, double** vectorPosiciones, int dim){
+void DistanciasEntreParticulas(int particula1, 
+                               int particula2, 
+                               double*** tensorPosiciones, 
+                               double** tensorDistancias, 
+                               double** vectorPosiciones, 
+                               int dim){
     // Calculo de la distancia para la dimensiones de cada par de partículas
     
     double distancia = 0;
@@ -230,7 +260,19 @@ void DistanciasEntreParticulas(int particula1, int particula2, double*** tensorP
 }
 
 // Algoritmo de verlet para posiciones, velocidades y aceleraciones
-void Verlet(double L, double deltaT, int dim, int N, int particula, double** vectorPosicion, double** vectorPosicionAnterior, double** vectorVelocidad, double** vectorVelocidadAnterior, double** vectorFuerzas, double** vectorFuerzasAnterior , double*** tensorFuerzas, double** vectorMasas){
+void Verlet(double L, 
+            double deltaT, 
+            int dim, 
+            int N, 
+            int particula, 
+            double** vectorPosicion, 
+            double** vectorPosicionAnterior, 
+            double** vectorVelocidad, 
+            double** vectorVelocidadAnterior, 
+            double** vectorFuerzas, 
+            double** vectorFuerzasAnterior , 
+            double*** tensorFuerzas, 
+            double** vectorMasas){
     // Calculamos las posiciones con el algoritmo de verlet
     // En este mismo algoritmo se realiza la sumatoria total de fuerzas
     // sobre una misma partícula para posteriormente realizar verlett
@@ -277,7 +319,17 @@ void Verlet(double L, double deltaT, int dim, int N, int particula, double** vec
 }
 
 // Algoritmo de verlet para minimizar energía
-void VerletMinizacionEnergia(double L, double deltaT, int dim, int N, int particula, double** vectorPosicion, double** vectorPosicionAnterior, double** vectorFuerzas, double** vectorFuerzasAnterior , double*** tensorFuerzas, double** vectorMasas){
+void VerletMinizacionEnergia(double L, 
+                             double deltaT, 
+                             int dim, 
+                             int N, 
+                             int particula, 
+                             double** vectorPosicion, 
+                             double** vectorPosicionAnterior, 
+                             double** vectorFuerzas, 
+                             double** vectorFuerzasAnterior , 
+                             double*** tensorFuerzas, 
+                             double** vectorMasas){
     // Calculamos las posiciones con el algoritmo de verlet
     // En este mismo algoritmo se realiza la sumatoria total de fuerzas
     // sobre una misma partícula para posteriormente realizar verlett
@@ -418,14 +470,50 @@ void ImpresionMatrices2D(int N, int dim, double** matriz, char* nombreMatriz, ch
 
     
 }
+void salidaOvito(int N, int dim, double t, double** vector, char* nombreArchivo){
+    // Función que guarda las partículas en el formato XYZ    
 
+    FILE *archivo;
+    
+    // "rb" es para leer archivos binarios y "r" normales
+    archivo = fopen(nombreArchivo,"a"); 
+    
+    // Chequeo de errores
+    if (archivo == NULL){
+        printf("Error al abrir el archivo %s \n", nombreArchivo);
+        return;
+    }
+    
+    fprintf(archivo, "%d\n", N);
+    fprintf(archivo, "t = %f\n", t);
+
+    for (int particula = 0; particula < N; particula++){
+        
+        fprintf(archivo, "A ");
+        for (int dimension = 0; dimension < dim; dimension++){
+            fprintf(archivo, "%.6f ", vector[dimension][particula]);
+        }
+        if (dim < 3){
+            fprintf(archivo, "0");
+        }
+        fprintf(archivo, "\n");
+    }
+    fclose(archivo);
+}
+
+// Condición de contorno de no salirse de la caja
 double condicionContornoPeriodica(double posicion, double L){
+    
+    double varAux = 0;
+
     if (posicion < 0){
-        return posicion + L;
+        varAux = L + fmod(posicion, L);
+        return varAux;
     }
     else if (posicion > L)
     {
-        return posicion - L;
+        varAux = fmod(posicion, L);
+        return varAux;
     }
     
     return posicion;

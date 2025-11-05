@@ -20,7 +20,7 @@ int main() {
     int dim        = LecturaInputInt("input/dim");        // Dimensiones espaciales
     int pasosT     = LecturaInputInt("input/pasosT");     // Cantidad de pasos temporales
     double L       = LecturaInputDouble("input/L");       // Lado de caja cúbica
-    double Reff    = LecturaInputDouble("input/Reff");    // Radio efectivo de partícula
+    double reff    = LecturaInputDouble("input/Reff");    // Radio efectivo de partícula
     double epsilon = LecturaInputDouble("input/epsilon"); // Epsilon
     double sigma   = LecturaInputDouble("input/sigma");   // Sigma
     double deltaT  = LecturaInputDouble("input/deltaT");  // Paso temporal
@@ -63,27 +63,21 @@ int main() {
                 
                 // Cálculo del potencial de lennard-Jones ----------------------------------------
                 // Si la distancia es mayor a la efectiva, no computamos la energía de interacción ni la fuerza
-                if (Reff < Td[particula1][particula2]){
-                    continue;    
+                if (reff > Td[particula1][particula2])
+                {
+                    // Potencial de Lennard-Jones
+                    potencial += PotencialLJ(epsilon, sigma, Td[particula1][particula2], reff);
                 }
-                
-                // Potencial de Lennard-Jones
-                potencial += PotencialLJ(epsilon, sigma, Td[particula1][particula2]);
-                
+
                 // Calculamos las fuerzas entre partículas y se guarda en Tf
-                FuerzasEntreParticulas(particula1, particula2, Tf, Tr, Td, epsilon, sigma, dim);
+                FuerzasEntreParticulas(particula1, particula2, Tf, Tr, Td, epsilon, sigma, dim, reff);
+                
             }
 
         }
 
         EscrituraData("output/energia.dat", potencial);
-        // Debug
-        //ImpresionMatrices2D(N, N, Td, "Tensor de Distancias", "output/tensorDistancias.dat");
-        //ImpresionMatrices2D(N, dim, R, "Vector de posiciones", "output/vectorPosiciones.dat");
-        //ImpresionMatrices2D(N, 1, M, "Vector de Masas");
-        //ImpresionMatrices3D(N, dim, Tf, "Tensor de Fuerzas");
-        //ImpresionMatrices2D(N, dim, F, "Vector de Fuerzas");
-        //ImpresionMatrices3D(N, dim, Tr, "Tensor de Posiciones");
+        salidaOvito(N, dim, (double)iter*deltaT, R, "output/posicionT.xyz");
         
         // Con tensores calculados ahora hay que hacer calculos de posiciones
         for (int particula = 0; particula < N; particula++){
@@ -91,15 +85,10 @@ int main() {
             VerletMinizacionEnergia(L ,deltaT, dim, N, particula, R, Ranterior, F, Fanterior, Tf, M);
             //Verlet(L ,deltaT, dim, N, particula, R, Ranterior, V, Vanterior, F, Fanterior, Tf, M);
         }
-
-        //ImpresionMatrices2D(N, dim, R, "Vector de posiciones");
-        //ImpresionMatrices2D(N, 1, M, "Vector de Masas");
-        //ImpresionMatrices2D(N, dim, Ranterior, "Vector de posiciones anterior");
-        //ImpresionMatrices2D(N, dim, F, "Vector de Fuerzas");
     }
 
     // Guardamos la última posición
-    ImpresionMatrices2D(N, dim, R, "Tensor de Posiciones", "output/vectorPosiciones.dat");
+    // ImpresionMatrices2D(N, dim, R, "Tensor de Posiciones", "output/vectorPosiciones.dat");
     
     finalize_random();
     return 0;
