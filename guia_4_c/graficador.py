@@ -1,5 +1,5 @@
 from ovito.io import import_file
-from ovito.vis import Viewport
+from ovito.vis import Viewport, CoordinateTripodOverlay
 import os
 
 # ===== CONFIGURACIÓN =====
