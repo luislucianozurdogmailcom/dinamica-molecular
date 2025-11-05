@@ -75,7 +75,8 @@ int main() {
             }
 
         }
-        
+
+        EscrituraData("output/energia.dat", potencial);
         // Debug
         //ImpresionMatrices2D(N, N, Td, "Tensor de Distancias", "output/tensorDistancias.dat");
         //ImpresionMatrices2D(N, dim, R, "Vector de posiciones", "output/vectorPosiciones.dat");
@@ -86,8 +87,9 @@ int main() {
         
         // Con tensores calculados ahora hay que hacer calculos de posiciones
         for (int particula = 0; particula < N; particula++){
-
-            Verlet(L ,deltaT, dim, N, particula, R, Ranterior, V, Vanterior, F, Fanterior, Tf, M);
+            
+            VerletMinizacionEnergia(L ,deltaT, dim, N, particula, R, Ranterior, F, Fanterior, Tf, M);
+            //Verlet(L ,deltaT, dim, N, particula, R, Ranterior, V, Vanterior, F, Fanterior, Tf, M);
         }
 
         //ImpresionMatrices2D(N, dim, R, "Vector de posiciones");
@@ -95,7 +97,10 @@ int main() {
         //ImpresionMatrices2D(N, dim, Ranterior, "Vector de posiciones anterior");
         //ImpresionMatrices2D(N, dim, F, "Vector de Fuerzas");
     }
-        
-        finalize_random();
-        return 0;
+
+    // Guardamos la última posición
+    ImpresionMatrices2D(N, dim, R, "Tensor de Posiciones", "output/vectorPosiciones.dat");
+    
+    finalize_random();
+    return 0;
     }

@@ -46,6 +46,9 @@ void DistanciasEntreParticulas(int particula1, int particula2, double*** tensorP
 // Algoritmo de verlet para posiciones, velocidades y aceleraciones
 void Verlet(double L, double deltaT, int dim, int N, int particula, double** vectorPosicion, double** vectorPosicionAnterior, double** vectorVelocidad, double** vectorVelocidadAnterior, double** vectorFuerzas, double** vectorFuerzasAnterior , double*** tensorFuerzas, double** vectorMasas);
 
+// Algoritmo de verlet para minimizar energía
+void VerletMinizacionEnergia(double L, double deltaT, int dim, int N, int particula, double** vectorPosicion, double** vectorPosicionAnterior, double** vectorFuerzas, double** vectorFuerzasAnterior , double*** tensorFuerzas, double** vectorMasas);
+
 // Igualar matrices
 void IgualarMatriz(double** matriz1, double** matriz2, int N, int dim);
 

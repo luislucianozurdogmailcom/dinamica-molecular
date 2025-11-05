@@ -254,22 +254,63 @@ void Verlet(double L, double deltaT, int dim, int N, int particula, double** vec
         vectorVelocidadAnterior[k][particula] = vectorVelocidad[k][particula]; 
         vectorPosicionAnterior[k][particula]  = vectorPosicion[k][particula];
         
-        // Guardamos las fuerzas nuevas totales en el vectorFuerzas
+        // ----------- ACTUALIZAMOS FUERZA ---------------//
+        // Guardamos las fuerzas nuevas totales en el vectorFuerzas f(t)
         vectorFuerzas[k][particula] = fuerzaTotal;
 
-        // Calculamos la nueva posición como r(t+deltaT) = r(t) + v(t)*deltaT + 0.5*a(t)*deltaT^2
-        vectorPosicion[k][particula] =  vectorPosicionAnterior[k][particula] \
-                                      + vectorVelocidadAnterior[k][particula] * deltaT \
-                                      + ( ( vectorFuerzasAnterior[k][particula] * pow( deltaT, 2 ) ) / ( vectorMasas[0][particula] * 2 ) );
+        // ----------- ACTUALIZAMOS VELOCIDAD ------------//
+        // Calculamos la velocidad como V(t) = v(t-dT) + 0.5 [a(t-dT)+a(t)] * deltaT
+        vectorVelocidad[k][particula] = vectorVelocidadAnterior[k][particula] + \
+                                        0.5 * ( (vectorFuerzasAnterior[k][particula] / vectorMasas[0][particula]) \
+                                        + (vectorFuerzas[k][particula]/vectorMasas[0][particula]) ) * deltaT; 
+
+        // ----------- ACTUALIZAMOS POSICIÓN -------------//
+        // Calculamos la nueva posición como r(t+dT) = r(t) + v(t)*deltaT + 0.5*a(t)*deltaT^2
+        vectorPosicion[k][particula] =  vectorPosicion[k][particula] \
+                                      + vectorVelocidad[k][particula] * deltaT \
+                                      + ( ( vectorFuerzas[k][particula] * pow( deltaT, 2 ) ) / ( vectorMasas[0][particula] * 2 ) );
 
         // Condición de contorno periódica
         vectorPosicion[k][particula] = condicionContornoPeriodica(vectorPosicion[k][particula], L);
 
+    }
+}
 
-        // Calculamos la velocidad como V(t+deltaT) = v(t) + 0.5 [a(t)+a(t+deltaT)] * deltaT
-        vectorVelocidad[k][particula] = vectorVelocidadAnterior[k][particula] + \
-                                        0.5 * ( (vectorFuerzasAnterior[k][particula] / vectorMasas[0][particula]) \
-                                        + (vectorFuerzas[k][particula]/vectorMasas[0][particula]) ) * deltaT; 
+// Algoritmo de verlet para minimizar energía
+void VerletMinizacionEnergia(double L, double deltaT, int dim, int N, int particula, double** vectorPosicion, double** vectorPosicionAnterior, double** vectorFuerzas, double** vectorFuerzasAnterior , double*** tensorFuerzas, double** vectorMasas){
+    // Calculamos las posiciones con el algoritmo de verlet
+    // En este mismo algoritmo se realiza la sumatoria total de fuerzas
+    // sobre una misma partícula para posteriormente realizar verlett
+    
+    // Variable auxiliar para fuerzas y posiciones
+    double fuerzaTotal   = 0; 
+
+    for (int k = 0; k < dim; k++){
+        
+        // Inicializamos con cero
+        fuerzaTotal   = 0;
+
+        for (int columna = 0; columna < N; columna++){
+            
+            // Acumulamos fuerzas para una dimensión
+            fuerzaTotal += tensorFuerzas[particula][columna][k];
+        }
+
+        // Guardamos la posicion, la velocidad y la fuerza anterior
+        vectorFuerzasAnterior[k][particula]   = vectorFuerzas[k][particula];
+        vectorPosicionAnterior[k][particula]  = vectorPosicion[k][particula];
+        
+        // ----------- ACTUALIZAMOS FUERZA ---------------//
+        // Guardamos las fuerzas nuevas a f(t)
+        vectorFuerzas[k][particula] = fuerzaTotal;
+
+        // ----------- ACTUALIZAMOS POSICIÓN -------------//
+        // Calculamos la nueva posición como r(t+dT) = r(t) + 0.5 * ( f(t) / m ) * deltaT^2
+        vectorPosicion[k][particula] = vectorPosicion[k][particula] \
+                                     + ( ( vectorFuerzas[k][particula] * pow( deltaT, 2 ) ) / ( vectorMasas[0][particula] * 2 ) );
+
+        // Condición de contorno periódica
+        vectorPosicion[k][particula] = condicionContornoPeriodica(vectorPosicion[k][particula], L);
     }
 }
 
