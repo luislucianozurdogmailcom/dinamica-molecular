@@ -1,12 +1,18 @@
 from ovito.io import import_file
-from ovito.vis import Viewport, CoordinateTripodOverlay
+from ovito.vis import Viewport, CoordinateTripodOverlay, ViewportOverlay, TextLabelOverlay
+import OpenGL.GL as gl
 import os
+from utils.convertidor_a_mp4 import convert_to_mp4
 
 # ===== CONFIGURACIÓN =====
-input_file = "output/posicionT.xyz"
-output_dir = "frames"
-image_size = (800, 600)
-particle_radius = 0.3
+input_file      = "output/posicionT.xyz"
+output_dir      = "output"
+image_size      = (800, 600)
+with open("input/sigma", "r") as f:
+    particle_radius = float(f.read().strip())/2
+    print(f"Radio de partícula leído desde archivo: {particle_radius}")
+scale_length    = 10.0  # 🔹 Longitud de la barra de escala en unidades de simulación
+bar_color       = (0.0, 0.0, 0.0)  # negro
 
 # ===== CARGA DEL ARCHIVO =====
 print(f"Cargando archivo: {input_file}")
@@ -20,7 +26,6 @@ pipeline.add_to_scene()
 
 particles_vis = pipeline.source.data.particles.vis
 particles_vis.radius = particle_radius
-# 🔹 No seteamos color, usa el default
 
 # ===== CREAR CARPETA =====
 os.makedirs(output_dir, exist_ok=True)
@@ -30,16 +35,79 @@ vp = Viewport()
 vp.type = Viewport.Type.Perspective
 vp.zoom_all()
 
-# ===== RENDERIZAR FRAMES =====
-for frame in range(num_frames):
-    output_path = os.path.join(output_dir, f"frame_{frame:04d}.png")
-    print(f"Renderizando frame {frame+1}/{num_frames} → {output_path}")
-    vp.render_image(
-        filename=output_path,
-        size=image_size,
-        background=(1, 1, 1),
-        frame=frame
-    )
+# Alejar la cámara
+pos           = vp.camera_pos
+vp.camera_pos = (pos[0] * 0.8 + 0.1, pos[1] * 0.8 + 0.1, pos[2] * 0.8 + 0.1)
+
+# ===== AGREGAR TRÍPODE =====
+tripod            = CoordinateTripodOverlay()
+tripod.size       = 0.03
+tripod.line_width = 0.5
+vp.overlays.append(tripod)
+
+output_path = os.path.join(output_dir, f"animation.mp4")
+print(f"Renderizando video → {output_path}")
+vp.render_anim(size=(800,600), filename=output_path, fps=20)
+
 
 print("\n✅ Renderización completa.")
-print(f"Imágenes guardadas en: {os.path.abspath(output_dir)}")
+print(f"Video guardado en: {os.path.abspath(output_dir)}")
+
+
+'''
+Parte que grafica la energia
+'''
+
+import sys
+import numpy as np
+import matplotlib.pyplot as plt
+
+fn = "output/energia.dat"
+
+with open("input/deltaT", "r") as f:
+    deltaT = float(f.read().strip())
+
+with open("input/deltaTMinimizacion", "r") as f:
+    deltaTMinimizacion = float(f.read().strip())
+    
+with open("input/tMinimizacion", "r") as f:
+    tMinimizacion = int(f.read().strip())
+try:
+    data = np.loadtxt(fn)
+except Exception as e:
+    print(f"Error al leer '{fn}': {e}", file=sys.stderr)
+    sys.exit(1)
+
+# detectar columnas: si hay >=2 columnas, usar primera como x y segunda como y; si sólo hay 1, usar índice como x
+if data.ndim == 1:
+    y_minimizacion = data[10:tMinimizacion]
+    x_minimizacion = np.arange(len(y_minimizacion)) * deltaTMinimizacion
+    y              = data[tMinimizacion:]
+    x              = np.arange(len(y)) * deltaT + max(x_minimizacion)
+
+# Para concatenar vectores 
+x_final = np.concatenate([x_minimizacion, x])
+y_final = np.concatenate([y_minimizacion, y])
+
+# Para gráficos
+mean    = np.mean(y)
+ymin    = -np.abs(mean*5)
+ymax    = np.abs(mean*5)
+
+plt.figure(figsize=(8, 4.5), dpi = 300)
+plt.plot(x_final, y_final, '-', markersize=3)
+plt.axhline(y=mean, color='red', linestyle='--', linewidth=1, label=f'Energia Media = {mean:.2f}')
+plt.xlabel('Pasos temporales' if data.ndim == 1 or data.shape[1] == 1 else 'columna 1')
+plt.ylabel('Energía (columna 2)' if data.ndim > 1 and data.shape[1] > 1 else 'Energía')
+plt.title('Energía — archivo: ' + fn)
+plt.ylim(ymin, ymax)
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.savefig("output/energia.png")
+
+# Convertimos el video
+convert_to_mp4(input_file="output/animation.mp4",
+               overwrite=True,
+               output_file="output/animation2.mp4",
+               quality="medium")

@@ -1,8 +1,7 @@
 clear
 
 echo "Borramos la carpeta anteriormente generada..."
-rm -r output
-rm -r frames
+rm -r output 
 
 echo "Compilando con optimizaciones para código científico...."
 

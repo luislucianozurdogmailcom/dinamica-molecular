@@ -16,14 +16,18 @@ int main() {
     initialize_random();
 
     // Leemos los archivos de entrada
-    int N          = LecturaInputInt("input/N");          // Cantidad de partículas 
-    int dim        = LecturaInputInt("input/dim");        // Dimensiones espaciales
-    int pasosT     = LecturaInputInt("input/pasosT");     // Cantidad de pasos temporales
-    double L       = LecturaInputDouble("input/L");       // Lado de caja cúbica
-    double reff    = LecturaInputDouble("input/Reff");    // Radio efectivo de partícula
-    double epsilon = LecturaInputDouble("input/epsilon"); // Epsilon
-    double sigma   = LecturaInputDouble("input/sigma");   // Sigma
-    double deltaT  = LecturaInputDouble("input/deltaT");  // Paso temporal
+    int N                     = LecturaInputInt("input/N");                     // Cantidad de partículas 
+    int dim                   = LecturaInputInt("input/dim");                   // Dimensiones espaciales
+    int pasosT                = LecturaInputInt("input/pasosT");                // Cantidad de pasos temporales
+    double L                  = LecturaInputDouble("input/L");                  // Lado de caja cúbica
+    double reff               = LecturaInputDouble("input/Reff");               // Radio efectivo de partícula
+    double epsilon            = LecturaInputDouble("input/epsilon");            // Epsilon
+    double sigma              = LecturaInputDouble("input/sigma");              // Sigma
+    double deltaT             = LecturaInputDouble("input/deltaT");             // Paso temporal
+    double deltaTMinimizacion = LecturaInputDouble("input/deltaTMinimizacion"); // Delta T para la minimizacion (generalmente mas grande)
+    int tGuardado             = LecturaInputInt("input/tGuardado");             // Cada cuantos pasos guardamos
+    double temp               = LecturaInputDouble("input/Temp");               // Temperatura inicial
+    int tMinimizacion         = LecturaInputInt("input/tMinimizacion");         // Pasos temporales hasta cortar minimizacion
     
     // Inicializamos los vectores r, v y f
     double** R         = CrearMatriz(N, dim, L, 0); // Vector de posiciones actuales creadas al azar
@@ -38,6 +42,9 @@ int main() {
     IgualarMatriz(Ranterior, R, N, dim);
     IgualarMatriz(Vanterior, V, N, dim);
     IgualarMatriz(Fanterior, F, N, dim);
+
+    // Inicializamos velocidades
+    inicializarVelocidades(N, dim, temp, V);
 
     // Inicializamos los tensores
     double**  Td = TensorNN(N);       // Tensor que almacena distancias calculadas
@@ -59,7 +66,7 @@ int main() {
             // Comparacion entre particula 1 y las demas
             for (int particula2 = 0; particula2 < particula1; particula2 ++){
                 
-                DistanciasEntreParticulas(particula1, particula2, Tr, Td, R, dim);
+                DistanciasEntreParticulas(particula1, particula2, Tr, Td, R, dim, L, reff);
                 
                 // Cálculo del potencial de lennard-Jones ----------------------------------------
                 // Si la distancia es mayor a la efectiva, no computamos la energía de interacción ni la fuerza
@@ -76,19 +83,32 @@ int main() {
 
         }
 
+        // Guardamos la energia
         EscrituraData("output/energia.dat", potencial);
-        salidaOvito(N, dim, (double)iter*deltaT, R, "output/posicionT.xyz");
         
-        // Con tensores calculados ahora hay que hacer calculos de posiciones
-        for (int particula = 0; particula < N; particula++){
-            
-            VerletMinizacionEnergia(L ,deltaT, dim, N, particula, R, Ranterior, F, Fanterior, Tf, M);
-            //Verlet(L ,deltaT, dim, N, particula, R, Ranterior, V, Vanterior, F, Fanterior, Tf, M);
+        // Guardado de pasos temporales
+        if (iter % tGuardado == 0){
+
+            salidaOvito(N, dim, (double)iter*deltaT, R, "output/posicionT.xyz");
+        }
+        
+        // Minimización hasta cierto T
+        if (iter < tMinimizacion){
+
+            // Con tensores calculados ahora hay que hacer calculos de posiciones
+            for (int particula = 0; particula < N; particula++){
+                VerletMinizacionEnergia(L ,deltaTMinimizacion, dim, N, particula, R, Ranterior, F, Fanterior, Tf, M);
+            } 
+        }
+        else
+        {
+            // Con tensores calculados ahora hay que hacer calculos de posiciones
+            for (int particula = 0; particula < N; particula++){
+                Verlet(L ,deltaT, dim, N, particula, R, Ranterior, V, Vanterior, F, Fanterior, Tf, M);
+            }
         }
     }
 
-    // Guardamos la última posición
-    // ImpresionMatrices2D(N, dim, R, "Tensor de Posiciones", "output/vectorPosiciones.dat");
     
     finalize_random();
     return 0;

@@ -54,7 +54,9 @@ void DistanciasEntreParticulas(int particula1,
                                double*** tensorPosiciones, 
                                double** tensorDistancias, 
                                double** vectorPosiciones, 
-                               int dim);
+                               int dim,
+                               double L,
+                               double reff);
 
 // Algoritmo de verlet para posiciones, velocidades y aceleraciones
 void Verlet(double L, 
@@ -94,6 +96,9 @@ void salidaOvito(int N, int dim, double t, double** vector, char* nombreArchivo)
 
 // Condicion de contorno periódica
 double condicionContornoPeriodica(double posicion, double L);
+
+// Inicializamos las velocidades con una temperatura dada
+void inicializarVelocidades(int N, int dim, double T, double** vector);
 
 char* NombreArchivo(char *texto, double T, int iteracion);
 

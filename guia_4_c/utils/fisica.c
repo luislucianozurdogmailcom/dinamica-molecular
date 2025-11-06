@@ -216,7 +216,7 @@ void FuerzasEntreParticulas(int particula1,
             // Almacenamos la fuerza en el tensor
             
             // Encima de la diagonal de la matriz con el signo positivo
-            tensorFuerzas[particula1][particula2][k] = - ( tensorPosiciones[particula1][particula2][k]  / tensorDistancias[particula1][particula2] ) * DerivadaPotencialLJ(epsilon, sigma, tensorDistancias[particula1][particula2]); 
+            tensorFuerzas[particula1][particula2][k] = ( tensorPosiciones[particula1][particula2][k]  / tensorDistancias[particula1][particula2] ) * DerivadaPotencialLJ(epsilon, sigma, tensorDistancias[particula1][particula2]); 
             
             // Debajo de la diagonal de la matriz signo cambiado debido a que es la reacción de la otra partícula
             tensorFuerzas[particula2][particula1][k] = - tensorFuerzas[particula1][particula2][k];
@@ -239,18 +239,40 @@ void DistanciasEntreParticulas(int particula1,
                                double*** tensorPosiciones, 
                                double** tensorDistancias, 
                                double** vectorPosiciones, 
-                               int dim){
+                               int dim,
+                               double L,
+                               double reff){
     // Calculo de la distancia para la dimensiones de cada par de partículas
     
     double distancia = 0;
 
     for(int k = 0; k < dim; k++){
         
-        distancia += pow( vectorPosiciones[k][particula2] - vectorPosiciones[k][particula1] ,2);
+        // Condición de contorno periódica para distancias entre partículas 
+        if(vectorPosiciones[k][particula2] < reff && vectorPosiciones[k][particula1] > L - reff)
+        {
+            distancia += pow( (vectorPosiciones[k][particula2] + L) - (vectorPosiciones[k][particula1] ) ,2);
         
-        // Llenamos el tensor de posiciones
-        tensorPosiciones[particula1][particula2][k] = vectorPosiciones[k][particula2] - vectorPosiciones[k][particula1];
-        tensorPosiciones[particula2][particula1][k] = - tensorPosiciones[particula1][particula2][k];
+            // Llenamos el tensor de posiciones
+            tensorPosiciones[particula1][particula2][k] = ( vectorPosiciones[k][particula2] + L ) - vectorPosiciones[k][particula1];
+            tensorPosiciones[particula2][particula1][k] = - tensorPosiciones[particula1][particula2][k];
+        }
+        else if(vectorPosiciones[k][particula2] > L - reff && vectorPosiciones[k][particula1] < reff)
+        {
+            distancia += pow( (vectorPosiciones[k][particula2]) - (vectorPosiciones[k][particula1] + L) ,2);
+            
+            // Llenamos el tensor de posiciones
+            tensorPosiciones[particula1][particula2][k] = vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] + L);
+            tensorPosiciones[particula2][particula1][k] = - tensorPosiciones[particula1][particula2][k];
+        }
+        else
+        {
+            distancia += pow( vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] ) ,2);
+
+            // Llenamos el tensor de posiciones
+            tensorPosiciones[particula1][particula2][k] = vectorPosiciones[k][particula2] - vectorPosiciones[k][particula1];
+            tensorPosiciones[particula2][particula1][k] = - tensorPosiciones[particula1][particula2][k];
+        }
     }
     
     // Almaceno la distancia en el tensor distancias
@@ -493,9 +515,16 @@ void salidaOvito(int N, int dim, double t, double** vector, char* nombreArchivo)
         for (int dimension = 0; dimension < dim; dimension++){
             fprintf(archivo, "%.6f ", vector[dimension][particula]);
         }
-        if (dim < 3){
+
+        // Adaptaciones para dimensiones menores
+        if (2 == dim){
             fprintf(archivo, "0");
         }
+        else if(1 == dim)
+        {
+            fprintf(archivo, "0 0");
+        }
+        
         fprintf(archivo, "\n");
     }
     fclose(archivo);
@@ -517,6 +546,16 @@ double condicionContornoPeriodica(double posicion, double L){
     }
     
     return posicion;
+}
+
+// Inicializamos las velocidades con una temperatura dada
+void inicializarVelocidades(int N, int dim, double T, double** vector){
+    
+    for (int i = 0; i < dim; i++){
+        for (int j = 0; j < N; j++){
+            vector[i][j] = rnor() * T;
+        }
+    }
 }
 
 char* NombreArchivo(char *texto, double T, int iteracion){
