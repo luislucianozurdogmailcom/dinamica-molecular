@@ -45,6 +45,7 @@ tripod.size       = 0.03
 tripod.line_width = 0.5
 vp.overlays.append(tripod)
 
+
 output_path = os.path.join(output_dir, f"animation.mp4")
 print(f"Renderizando video → {output_path}")
 vp.render_anim(size=(800,600), filename=output_path, fps=20)
@@ -91,12 +92,13 @@ y_final = np.concatenate([y_minimizacion, y])
 
 # Para gráficos
 mean    = np.mean(y)
+std     = np.std(y)
 ymin    = -np.abs(mean*5)
 ymax    = np.abs(mean*5)
 
 plt.figure(figsize=(8, 4.5), dpi = 300)
 plt.plot(x_final, y_final, '-', markersize=3)
-plt.axhline(y=mean, color='red', linestyle='--', linewidth=1, label=f'Energia Media = {mean:.2f}')
+plt.axhline(y=mean, color='red', linestyle='--', linewidth=1, label=f'Mean = {mean:.2f}, Std: {std:.3f}')
 plt.xlabel('Pasos temporales' if data.ndim == 1 or data.shape[1] == 1 else 'columna 1')
 plt.ylabel('Energía (columna 2)' if data.ndim > 1 and data.shape[1] > 1 else 'Energía')
 plt.title('Energía — archivo: ' + fn)

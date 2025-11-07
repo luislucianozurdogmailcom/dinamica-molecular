@@ -52,17 +52,20 @@ int main() {
     double*** Tf = TensorNND(N, dim); // Tensor que almacena fuerzas entre partículas
     
     // Variables necesarias durante las iteraciones
-    double potencial = 0;
+    double energiaPotencial = 0;
+    double energiaCinetica  = 0;
+    double energiaAux       = 0;
     
     // Inicializamos el loop
     for (int iter = 0; iter < pasosT; iter++){
         
-        // Reseteamos el potencial
-        potencial = 0;
+        // Reseteamos las energias totales por paso temporal
+        energiaPotencial = 0;
+        energiaCinetica  = 0;
 
         // Iteramos por cada par de partículas
         for (int particula1 = 0; particula1 < N; particula1++){
-            
+
             // Comparacion entre particula 1 y las demas
             for (int particula2 = 0; particula2 < particula1; particula2 ++){
                 
@@ -73,7 +76,7 @@ int main() {
                 if (reff > Td[particula1][particula2])
                 {
                     // Potencial de Lennard-Jones
-                    potencial += PotencialLJ(epsilon, sigma, Td[particula1][particula2], reff);
+                    energiaPotencial += PotencialLJ(epsilon, sigma, Td[particula1][particula2], reff);
                 }
 
                 // Calculamos las fuerzas entre partículas y se guarda en Tf
@@ -82,9 +85,6 @@ int main() {
             }
 
         }
-
-        // Guardamos la energia
-        EscrituraData("output/energia.dat", potencial);
         
         // Guardado de pasos temporales
         if (iter % tGuardado == 0){
@@ -105,8 +105,16 @@ int main() {
             // Con tensores calculados ahora hay que hacer calculos de posiciones
             for (int particula = 0; particula < N; particula++){
                 Verlet(L ,deltaT, dim, N, particula, R, Ranterior, V, Vanterior, F, Fanterior, Tf, M);
+                
+                // Calculamos la energía cinética total
+                for (int dimension = 0; dimension < dim; dimension++){
+                    energiaCinetica += 0.5 * pow(V[dimension][particula], 2) / M[0][particula] ;
+                }
             }
+
         }
+        // Guardamos las energias totales
+        EscrituraData("output/energia.dat", energiaPotencial + energiaCinetica);
     }
 
     
