@@ -81,7 +81,7 @@ except Exception as e:
 
 # detectar columnas: si hay >=2 columnas, usar primera como x y segunda como y; si sólo hay 1, usar índice como x
 if data.ndim == 1:
-    y_minimizacion = data[10:tMinimizacion]
+    y_minimizacion = data[100:tMinimizacion]
     x_minimizacion = np.arange(len(y_minimizacion)) * deltaTMinimizacion
     y              = data[tMinimizacion:]
     x              = np.arange(len(y)) * deltaT + max(x_minimizacion)
@@ -93,8 +93,8 @@ y_final = np.concatenate([y_minimizacion, y])
 # Para gráficos
 mean    = np.mean(y)
 std     = np.std(y)
-ymin    = -np.abs(mean*5)
-ymax    = np.abs(mean*5)
+ymin    = -np.abs(np.mean(y_minimizacion)*1.5)
+ymax    = np.abs(np.mean(y_minimizacion)*1.5)
 
 plt.figure(figsize=(8, 4.5), dpi = 300)
 plt.plot(x_final, y_final, '-', markersize=3)
@@ -109,7 +109,9 @@ plt.tight_layout()
 plt.savefig("output/energia.png")
 
 # Convertimos el video
+'''
 convert_to_mp4(input_file="output/animation.mp4",
                overwrite=True,
                output_file="output/animation2.mp4",
                quality="medium")
+'''

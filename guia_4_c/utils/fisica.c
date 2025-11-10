@@ -244,26 +244,61 @@ void DistanciasEntreParticulas(int particula1,
                                double reff){
     // Calculo de la distancia para la dimensiones de cada par de partículas
     
-    double distancia = 0;
+    double distancia      = 0;
+    double distanciaPlusL = 0;
+    double distanciaAux   = 0;
 
     for(int k = 0; k < dim; k++){
+        
         
         // Condición de contorno periódica para distancias entre partículas 
         if(vectorPosiciones[k][particula2] < reff && vectorPosiciones[k][particula1] > L - reff)
         {
-            distancia += pow( (vectorPosiciones[k][particula2] + L) - (vectorPosiciones[k][particula1] ) ,2);
-        
-            // Llenamos el tensor de posiciones
-            tensorPosiciones[particula1][particula2][k] = ( vectorPosiciones[k][particula2] + L ) - vectorPosiciones[k][particula1];
-            tensorPosiciones[particula2][particula1][k] = - tensorPosiciones[particula1][particula2][k];
+            distanciaAux   = pow( vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] ) ,2);
+            distanciaPlusL = pow( (vectorPosiciones[k][particula2] + L) - (vectorPosiciones[k][particula1] ) ,2);
+            
+            // Distancia entre partículas normal, es menor que la de la condición de contorno
+            if (distanciaAux < distanciaPlusL){
+
+                distancia += distanciaAux;
+                
+                // Llenamos el tensor de posiciones
+                tensorPosiciones[particula1][particula2][k] = ( vectorPosiciones[k][particula2] ) - vectorPosiciones[k][particula1];
+                tensorPosiciones[particula2][particula1][k] = - tensorPosiciones[particula1][particula2][k];
+            }
+            else // Distancia entre particulas con condición de contorno es mas pequeña
+            {
+                distancia += distanciaPlusL;
+
+                // Llenamos el tensor de posiciones
+                tensorPosiciones[particula1][particula2][k] = ( vectorPosiciones[k][particula2] + L ) - vectorPosiciones[k][particula1];
+                tensorPosiciones[particula2][particula1][k] = - tensorPosiciones[particula1][particula2][k];
+
+            }
         }
         else if(vectorPosiciones[k][particula2] > L - reff && vectorPosiciones[k][particula1] < reff)
         {
-            distancia += pow( (vectorPosiciones[k][particula2]) - (vectorPosiciones[k][particula1] + L) ,2);
+            distanciaAux   = pow( vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] ) ,2);
+            distanciaPlusL = pow( (vectorPosiciones[k][particula2]) - (vectorPosiciones[k][particula1] + L) ,2);
             
-            // Llenamos el tensor de posiciones
-            tensorPosiciones[particula1][particula2][k] = vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] + L);
-            tensorPosiciones[particula2][particula1][k] = - tensorPosiciones[particula1][particula2][k];
+            // Distancia entre partículas normal, es menor que la de la condición de contorno
+            if (distanciaAux < distanciaPlusL){
+
+                distancia += distanciaAux;
+                
+                // Llenamos el tensor de posiciones
+                tensorPosiciones[particula1][particula2][k] = ( vectorPosiciones[k][particula2] ) - vectorPosiciones[k][particula1];
+                tensorPosiciones[particula2][particula1][k] = - tensorPosiciones[particula1][particula2][k];
+            }
+            else // Distancia entre particulas con condición de contorno es mas pequeña
+            {
+                distancia += distanciaPlusL;
+
+                // Llenamos el tensor de posiciones
+                tensorPosiciones[particula1][particula2][k] = ( vectorPosiciones[k][particula2] ) - ( vectorPosiciones[k][particula1] + L );
+                tensorPosiciones[particula2][particula1][k] = - tensorPosiciones[particula1][particula2][k];
+
+            }
         }
         else
         {

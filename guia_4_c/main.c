@@ -54,7 +54,6 @@ int main() {
     // Variables necesarias durante las iteraciones
     double energiaPotencial = 0;
     double energiaCinetica  = 0;
-    double energiaAux       = 0;
     
     // Inicializamos el loop
     for (int iter = 0; iter < pasosT; iter++){
