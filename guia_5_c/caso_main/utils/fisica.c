@@ -329,7 +329,9 @@ void Verlet(double L,
             double** vectorFuerzas, 
             double** vectorFuerzasAnterior , 
             double*** tensorFuerzas, 
-            double** vectorMasas){
+            double** vectorMasas,
+            double* phiLangevin,
+            double gammaLangevin){
     // Calculamos las posiciones con el algoritmo de verlet
     // En este mismo algoritmo se realiza la sumatoria total de fuerzas
     // sobre una misma partícula para posteriormente realizar verlett
@@ -354,8 +356,16 @@ void Verlet(double L,
         vectorPosicionAnterior[k][particula]  = vectorPosicion[k][particula];
         
         // ----------- ACTUALIZAMOS FUERZA ---------------//
-        // Guardamos las fuerzas nuevas totales en el vectorFuerzas f(t)
-        vectorFuerzas[k][particula] = fuerzaTotal;
+        // Guardamos las fuerzas nuevas totales en el vectorFuerzas f(t). Si tenemos termostato de Langevin utilizamos su mecánica.
+        // Caso contrario solo se actualiza la fuerza
+        if (gammaLangevin > 0)
+        {
+            vectorFuerzas[k][particula] = fuerzaTotal + phiLangevin[particula] * rnor() - gammaLangevin * vectorVelocidad[k][particula];
+        }
+        else
+        {
+            vectorFuerzas[k][particula] = fuerzaTotal;
+        }
 
         // ----------- ACTUALIZAMOS VELOCIDAD ------------//
         // Calculamos la velocidad como V(t) = v(t-dT) + 0.5 [a(t-dT)+a(t)] * deltaT
@@ -604,4 +614,19 @@ char* NombreArchivo(char *texto, double T, int iteracion){
 
     // Retornamos
     return nombreArchivo;
+}
+
+// Calculo del coeficiente del termostato de Langevin
+double* coeficienteLangevin(int N, double gamma, double T, double deltaT, double** m){
+    // Esta función devuelve un double* para cada partícula, debido a 
+    // que cada partícula puede tener una masa distinta.
+
+    // Vector que aloja los calculos de los phi
+    double* phi = (double*)malloc(N * sizeof(double*));
+
+    for (int i = 0; i < N; i++){
+        phi[i] = sqrt( ( 2 * T * gamma * m[0][i] ) / ( deltaT ) );
+    }
+
+    return phi;
 }

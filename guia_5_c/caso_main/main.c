@@ -28,6 +28,7 @@ int main() {
     int tGuardado             = LecturaInputInt("input/tGuardado");             // Cada cuantos pasos guardamos
     double temp               = LecturaInputDouble("input/Temp");               // Temperatura inicial
     int tMinimizacion         = LecturaInputInt("input/tMinimizacion");         // Pasos temporales hasta cortar minimizacion
+    double gammaLangevin      = LecturaInputDouble("input/gamma");              // Coeficiente gamma de fricción para el termostato
     
     // Inicializamos los vectores r, v y f
     double** R         = CrearMatriz(N, dim, L, 0); // Vector de posiciones actuales creadas al azar
@@ -50,7 +51,10 @@ int main() {
     double**  Td = TensorNN(N);       // Tensor que almacena distancias calculadas
     double*** Tr = TensorNND(N, dim); // Tensor que almacena posiciones entre particulas
     double*** Tf = TensorNND(N, dim); // Tensor que almacena fuerzas entre partículas
-    
+
+    // Inicializamos los coeficientes de las fuerzas del termostato de langevin
+    double* phiLangevin = coeficienteLangevin(N, gammaLangevin, temp, deltaT, M);
+
     // Variables necesarias durante las iteraciones
     double energiaPotencial = 0;
     double energiaCinetica  = 0;
@@ -103,7 +107,7 @@ int main() {
         {
             // Con tensores calculados ahora hay que hacer calculos de posiciones
             for (int particula = 0; particula < N; particula++){
-                Verlet(L ,deltaT, dim, N, particula, R, Ranterior, V, Vanterior, F, Fanterior, Tf, M);
+                Verlet(L ,deltaT, dim, N, particula, R, Ranterior, V, Vanterior, F, Fanterior, Tf, M, phiLangevin, gammaLangevin);
                 
                 // Calculamos la energía cinética total
                 for (int dimension = 0; dimension < dim; dimension++){

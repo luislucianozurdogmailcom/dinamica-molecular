@@ -71,7 +71,9 @@ void Verlet(double L,
             double** vectorFuerzas, 
             double** vectorFuerzasAnterior , 
             double*** tensorFuerzas, 
-            double** vectorMasas);
+            double** vectorMasas,
+            double* phiLangevin,
+            double gammaLangevin);
 
 // Algoritmo de verlet para minimizar energía
 void VerletMinizacionEnergia(double L, 
@@ -101,5 +103,8 @@ double condicionContornoPeriodica(double posicion, double L);
 void inicializarVelocidades(int N, int dim, double T, double** vector);
 
 char* NombreArchivo(char *texto, double T, int iteracion);
+
+// Calculo del coeficiente del termostato de Langevin
+double* coeficienteLangevin(int N, double gamma, double T, double deltaT, double** m);
 
 #endif
