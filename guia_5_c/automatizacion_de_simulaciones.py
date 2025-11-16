@@ -40,6 +40,4 @@ for densidad in densidades:
 
         os.system('bash compilacionYejecucion.sh')
         os.chdir('../..')  # Volvemos al directorio raíz
-
-        exit()
         

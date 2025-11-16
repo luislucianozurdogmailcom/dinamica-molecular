@@ -76,6 +76,19 @@ void EscrituraData(char *texto, double numero){
     fclose(archivo);
 }
 
+// Funciones para abrir y cerrar archivos facilmente
+FILE* AperturaArchivo(char *texto){
+    FILE *archivo;
+    
+    // "rb" es para leer archivos binarios y "r" normales
+    archivo = fopen(texto,"a"); 
+
+    return archivo;
+}
+void CierreArchivo(FILE *archivo){
+    fclose(archivo);
+}
+
 // Función encargada de escribir a archivo números de un array flexible
 void EscrituraDataArrays(char *texto ,double *array, int tamano){
     FILE *archivo;
@@ -146,6 +159,26 @@ double** TensorNN(int N){
     return matriz;
 }
 
+// Crear e inicializar tensor de NxN pero INT
+int** TensorNNint(int N){
+
+    // Crea la matriz de distancias entre partículas al cuadrado
+    int** matriz = (int**)malloc(N * sizeof(int*)); 
+    for(int i = 0; i < N; i++) {
+        matriz[i] = (int*)malloc(N * sizeof(int));
+    }
+
+    for (int j = 0; j < N; j++)
+    {
+        for (int i = 0; i < N; i++)
+        {
+            matriz[j][i] = 1;
+        }    
+    }
+
+    return matriz;
+}
+
 // Crear e inicializar Tensor de NxNxDim
 double*** TensorNND(int N, int dim){
     // Crea la matriz de fuerzas entre partículas y almacena cada componente
@@ -176,26 +209,31 @@ double*** TensorNND(int N, int dim){
 }
 
 // Potencial de Lennard-Jones
-double PotencialLJ(double epsilon, double sigma, double distancia, double rcut){
+double PotencialLJ(double epsilon, double sigma, double distancia, double potencialCut, double sigmaSeis, double sigmaDoce){
     // Epsilon es la medida del pozo de potencial y da cuenta de la 
     // intensidad de la interacción.
     // Sigma es una medida del diámetro efectivo de las particulas
-    
-    // Potencial del cutoff para evitar discontinuidades
-    double potencialCut = - 4 * epsilon * ( - ( pow( sigma / rcut, 6) ) + ( pow( sigma / rcut, 12) ) );
 
-    return 4 * epsilon * ( - ( pow( sigma / distancia, 6) ) + ( pow( sigma / distancia, 12) ) ) + potencialCut;
+    double distanciaSeis = distancia * distancia * distancia;
+    distanciaSeis        = distanciaSeis * distanciaSeis;
+
+    double distanciaDoce = distanciaSeis * distanciaSeis;
+
+    return 4 * epsilon * ( - ( sigmaSeis/distanciaSeis ) + ( sigmaDoce/distanciaDoce ) ) + potencialCut;
 }
 
 // Derivada en r del Potencial de Lennard-Jones
-double DerivadaPotencialLJ(double epsilon, double sigma, double distancia){
+double DerivadaPotencialLJ(double epsilon, double sigma, double distancia, double sigmaSeis, double sigmaDoce){
     // Epsilon es la medida del pozo de potencial y da cuenta de la 
     // intensidad de la interacción.
     // Sigma es una medida del diámetro efectivo de las particulas
     
-
+    double distanciaSiete = distancia * distancia * distancia * distancia * distancia * distancia * distancia;
     
-    return 4 * epsilon * ( 6 * ( pow( sigma, 6 ) / pow( distancia, 7 ) ) - 12 * ( pow( sigma, 12) / pow(distancia, 13) ) );
+    double distanciaTrece = distanciaSiete * distanciaSiete / distancia;
+    
+    
+    return 4 * epsilon * ( 6 * ( sigmaSeis / distanciaSiete ) - 12 * ( sigmaDoce / distanciaTrece ) );
 }
 
 // Calcula las fuerzas entre partículas y llena los tensores correspondientes
@@ -207,7 +245,9 @@ void FuerzasEntreParticulas(int particula1,
                             double epsilon, 
                             double sigma, 
                             int dim, 
-                            double reff){
+                            double reff,
+                            double sigmaSeis,
+                            double sigmaDoce){
     
     if(reff > tensorDistancias[particula1][particula2]) // Dentro del radio cutoff
     { 
@@ -216,7 +256,7 @@ void FuerzasEntreParticulas(int particula1,
             // Almacenamos la fuerza en el tensor
             
             // Encima de la diagonal de la matriz con el signo positivo
-            tensorFuerzas[particula1][particula2][k] = ( tensorPosiciones[particula1][particula2][k]  / tensorDistancias[particula1][particula2] ) * DerivadaPotencialLJ(epsilon, sigma, tensorDistancias[particula1][particula2]); 
+            tensorFuerzas[particula1][particula2][k] = ( tensorPosiciones[particula1][particula2][k]  / tensorDistancias[particula1][particula2] ) * DerivadaPotencialLJ(epsilon, sigma, tensorDistancias[particula1][particula2], sigmaSeis, sigmaDoce); 
             
             // Debajo de la diagonal de la matriz signo cambiado debido a que es la reacción de la otra partícula
             tensorFuerzas[particula2][particula1][k] = - tensorFuerzas[particula1][particula2][k];
@@ -254,8 +294,8 @@ void DistanciasEntreParticulas(int particula1,
         // Condición de contorno periódica para distancias entre partículas 
         if(vectorPosiciones[k][particula2] < reff && vectorPosiciones[k][particula1] > L - reff)
         {
-            distanciaAux   = pow( vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] ) ,2);
-            distanciaPlusL = pow( (vectorPosiciones[k][particula2] + L) - (vectorPosiciones[k][particula1] ) ,2);
+            distanciaAux   = ( vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] ) ) * ( vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] ) );
+            distanciaPlusL = ( (vectorPosiciones[k][particula2] + L) - (vectorPosiciones[k][particula1] ) ) * ( (vectorPosiciones[k][particula2] + L) - (vectorPosiciones[k][particula1] ) );
             
             // Distancia entre partículas normal, es menor que la de la condición de contorno
             if (distanciaAux < distanciaPlusL){
@@ -278,8 +318,8 @@ void DistanciasEntreParticulas(int particula1,
         }
         else if(vectorPosiciones[k][particula2] > L - reff && vectorPosiciones[k][particula1] < reff)
         {
-            distanciaAux   = pow( vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] ) ,2);
-            distanciaPlusL = pow( (vectorPosiciones[k][particula2]) - (vectorPosiciones[k][particula1] + L) ,2);
+            distanciaAux   = ( vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] ) ) * ( vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] ) ) ;
+            distanciaPlusL = ( (vectorPosiciones[k][particula2]) - (vectorPosiciones[k][particula1] + L) ) * ( (vectorPosiciones[k][particula2]) - (vectorPosiciones[k][particula1] + L) );
             
             // Distancia entre partículas normal, es menor que la de la condición de contorno
             if (distanciaAux < distanciaPlusL){
@@ -302,7 +342,7 @@ void DistanciasEntreParticulas(int particula1,
         }
         else
         {
-            distancia += pow( vectorPosiciones[k][particula2] - (vectorPosiciones[k][particula1] ) ,2);
+            distancia += ( vectorPosiciones[k][particula2] - vectorPosiciones[k][particula1] ) * ( vectorPosiciones[k][particula2] - vectorPosiciones[k][particula1] );
 
             // Llenamos el tensor de posiciones
             tensorPosiciones[particula1][particula2][k] = vectorPosiciones[k][particula2] - vectorPosiciones[k][particula1];
@@ -331,7 +371,9 @@ void Verlet(double L,
             double*** tensorFuerzas, 
             double** vectorMasas,
             double* phiLangevin,
-            double gammaLangevin){
+            double gammaLangevin,
+            int** tensorVecinos){
+    
     // Calculamos las posiciones con el algoritmo de verlet
     // En este mismo algoritmo se realiza la sumatoria total de fuerzas
     // sobre una misma partícula para posteriormente realizar verlett
@@ -346,13 +388,17 @@ void Verlet(double L,
 
         for (int columna = 0; columna < N; columna++){
             
+            if(tensorVecinos[particula][columna] == 0){
+                continue;
+            }
+
             // Acumulamos fuerzas para una dimensión
             fuerzaTotal += tensorFuerzas[particula][columna][k];
         }
 
         // Guardamos la posicion, la velocidad y la fuerza anterior
         vectorFuerzasAnterior[k][particula]   = vectorFuerzas[k][particula];
-        vectorVelocidadAnterior[k][particula] = vectorVelocidad[k][particula]; 
+        vectorVelocidadAnterior[k][particula] = vectorVelocidad[k][particula];
         vectorPosicionAnterior[k][particula]  = vectorPosicion[k][particula];
         
         // ----------- ACTUALIZAMOS FUERZA ---------------//
@@ -377,7 +423,7 @@ void Verlet(double L,
         // Calculamos la nueva posición como r(t+dT) = r(t) + v(t)*deltaT + 0.5*a(t)*deltaT^2
         vectorPosicion[k][particula] =  vectorPosicion[k][particula] \
                                       + vectorVelocidad[k][particula] * deltaT \
-                                      + ( ( vectorFuerzas[k][particula] * pow( deltaT, 2 ) ) / ( vectorMasas[0][particula] * 2 ) );
+                                      + ( ( vectorFuerzas[k][particula] * deltaT * deltaT ) / ( vectorMasas[0][particula] * 2 ) );
 
         // Condición de contorno periódica
         vectorPosicion[k][particula] = condicionContornoPeriodica(vectorPosicion[k][particula], L);
@@ -396,7 +442,8 @@ void VerletMinizacionEnergia(double L,
                              double** vectorFuerzas, 
                              double** vectorFuerzasAnterior , 
                              double*** tensorFuerzas, 
-                             double** vectorMasas){
+                             double** vectorMasas,
+                             int** tensorVecinos){
     // Calculamos las posiciones con el algoritmo de verlet
     // En este mismo algoritmo se realiza la sumatoria total de fuerzas
     // sobre una misma partícula para posteriormente realizar verlett
@@ -411,6 +458,10 @@ void VerletMinizacionEnergia(double L,
 
         for (int columna = 0; columna < N; columna++){
             
+            if(tensorVecinos[particula][columna] == 0){
+                continue;
+            }
+
             // Acumulamos fuerzas para una dimensión
             fuerzaTotal += tensorFuerzas[particula][columna][k];
         }
@@ -426,7 +477,7 @@ void VerletMinizacionEnergia(double L,
         // ----------- ACTUALIZAMOS POSICIÓN -------------//
         // Calculamos la nueva posición como r(t+dT) = r(t) + 0.5 * ( f(t) / m ) * deltaT^2
         vectorPosicion[k][particula] = vectorPosicion[k][particula] \
-                                     + ( ( vectorFuerzas[k][particula] * pow( deltaT, 2 ) ) / ( vectorMasas[0][particula] * 2 ) );
+                                     + ( ( vectorFuerzas[k][particula] * deltaT * deltaT ) / ( vectorMasas[0][particula] * 2 ) );
 
         // Condición de contorno periódica
         vectorPosicion[k][particula] = condicionContornoPeriodica(vectorPosicion[k][particula], L);
@@ -630,3 +681,21 @@ double* coeficienteLangevin(int N, double gamma, double T, double deltaT, double
 
     return phi;
 }
+
+double VirialSinCinetica(int dim, int particula1, int particula2, double*** tensorFuerzas, double** tensorDistancias){
+    // Función que calcula la distancia por la fuerza total en todas las dimensiones para dos partículas
+
+    double fuerzaTotal = 0;
+
+    for (int k = 0; k < dim; k++){
+        fuerzaTotal +=  tensorFuerzas[particula1][particula2][k] * tensorFuerzas[particula1][particula2][k];
+    }
+
+    // Modulo del vector fuerza entre dos partículas
+    fuerzaTotal = sqrt(fuerzaTotal);
+
+    // parte virial
+    return tensorDistancias[particula1][particula2] * fuerzaTotal;
+}
+
+// ---------------------- Optimizaciones ------------------------------------
