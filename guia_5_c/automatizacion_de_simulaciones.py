@@ -38,6 +38,6 @@ for densidad in densidades:
         with open(archivo, 'w') as f:
             f.writelines(f'{math.pow( ( particulas ) / ( densidad*(sigma**3) ) , 1/3)}')
 
-        os.system('bash compilacionYejecucion.sh')
+        os.system('bash run.sh')
         os.chdir('../..')  # Volvemos al directorio raíz
         

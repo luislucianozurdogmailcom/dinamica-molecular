@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <omp.h>
 #include "ziggurat/ziggurat.h"
 #include "utils/fisica.h" // Biblioteca autocreada con funciones
 
@@ -28,9 +29,12 @@ int main() {
     double deltaTMinimizacion = LecturaInputDouble("input/deltaTMinimizacion");  // Delta T para la minimizacion (generalmente mas grande)
     int tGuardado             = LecturaInputInt("input/tGuardado");              // Cada cuantos pasos guardamos
     int tMinimizacion         = LecturaInputInt("input/tMinimizacion");          // Pasos temporales hasta cortar minimizacion
+    int muestreo              = LecturaInputInt("input/muestreo");               // Muestreo de datos en la simulación post minimizacion
+    int muestreoMinimizacion  = LecturaInputInt("input/muestreoMinimizacion");   // Muestreo de datos en la minimizacion
     double gammaLangevin      = LecturaInputDouble("input/gamma");               // Coeficiente gamma de fricción para el termostato
     double kb                 = LecturaInputDouble("input/kb");                  // Constante de Boltzman
     double temp               = LecturaInputDouble("input/Temp") * epsilon / kb; // Temperatura inicial
+    int procesadores          = LecturaInputInt("input/procesadores");           // Procesadores en paralelo
 
     // Inicializamos los vectores r, v y f
     double** R         = CrearMatriz(N, dim, L, 0); // Vector de posiciones actuales creadas al azar
@@ -41,6 +45,10 @@ int main() {
     double** Fanterior = CrearMatriz(N, dim, 0, 0); // Vector de Fuerzas paso temporal anterior
     double** M         = CrearMatriz(N, 1, 1, 1);   // Vector de masas como 1
     
+    // Seteamos los procesos en paralelo
+    omp_set_num_threads(procesadores);  // Ajusta según tu CPU
+    printf("Usando %d threads\n", omp_get_max_threads());
+
     // Igualamos la matrices anteriores a la actual
     IgualarMatriz(Ranterior, R, N, dim);
     IgualarMatriz(Vanterior, V, N, dim);
@@ -61,11 +69,14 @@ int main() {
     double* phiLangevin = coeficienteLangevin(N, gammaLangevin, temp, deltaT, M);
 
     // Variables necesarias durante las iteraciones
-    double energiaPotencial  = 0;
-    double energiaCinetica   = 0;
-    double virialSinCinetica = 0;
-    double presionTotal      = 0;
-    double tempInstantanea   = 0;
+    double energiaPotencial        = 0;
+    double energiaCinetica         = 0;
+    double virialSinCinetica       = 0;
+    double presionTotal            = 0;
+    double tempInstantanea         = 0;
+    double presionMedia            = 0;
+    double presionCuadraticaMedia  = 0;
+    double virialPromedio          = 0;
     
     // Valores precalculados constantes a lo largo de la simulación
     
@@ -77,11 +88,18 @@ int main() {
     double sigmaDoce  = pow(sigma, 12);
 
     // Abrimos archivos de escritura:
-    FILE* energiaArchivo = AperturaArchivo("output/energia.dat");
-    FILE* presionArchivo = AperturaArchivo("output/presion.dat");
+    FILE* energiaArchivo      = AperturaArchivo("output/energia.dat");
+    FILE* presionArchivo      = AperturaArchivo("output/presion.dat");
+    FILE* temperaturaArchivo  = AperturaArchivo("output/temperatura.dat");
+    FILE* presionMediaArchivo = AperturaArchivo("output/fluctP.dat");
+
+    // Medimos tiempo al inicio
+    double start_time = omp_get_wtime();
 
     // Inicializamos el loop
     for (int iter = 0; iter < pasosT; iter++){
+
+        int particula1, particula2;
         
         // Reseteamos las energias totales por paso temporal
         energiaPotencial  = 0;
@@ -92,10 +110,12 @@ int main() {
         
 
         // Iteramos por cada par de partículas
-        for (int particula1 = 0; particula1 < N; particula1++){
+        // Paralelizamos
+        #pragma omp parallel for private(particula2) reduction(+:energiaPotencial,virialSinCinetica) schedule(dynamic) 
+        for (particula1 = 0; particula1 < N; particula1++){
 
             // Comparacion entre particula 1 y las demas
-            for (int particula2 = 0; particula2 < particula1; particula2 ++){
+            for (particula2 = 0; particula2 < particula1; particula2 ++){
                 
                 // Si no son vecinos, salteamos. Cada listaVecinos calculamos nuevamente todas las distancias
                 if (Tv[particula1][particula2] == 0 && iter % listaVecinos != 0){
@@ -125,21 +145,17 @@ int main() {
                 FuerzasEntreParticulas(particula1, particula2, Tf, Tr, Td, epsilon, sigma, dim, reff, sigmaSeis, sigmaDoce);
                 
                 // Parte del virial sin la energia cinética:
-                virialSinCinetica += VirialSinCinetica(dim, particula1, particula2, Tf, Td);
+                virialSinCinetica += VirialSinCinetica(dim, particula1, particula2, Tf, Tr);
             }
 
-        }
-        
-        // Guardado de pasos temporales
-        if (iter % tGuardado == 0){
-
-            salidaOvito(N, dim, (double)iter*deltaT, R, "output/posicionT.xyz");
         }
         
         // Minimización hasta cierto T
         if (iter < tMinimizacion){
 
             // Con tensores calculados ahora hay que hacer calculos de posiciones
+            // Paralelizamos
+            #pragma omp parallel for 
             for (int particula = 0; particula < N; particula++){
                 VerletMinizacionEnergia(L ,deltaTMinimizacion, dim, N, particula, R, Ranterior, F, Fanterior, Tf, M, Tv);
             } 
@@ -147,36 +163,73 @@ int main() {
         else
         {
             // Con tensores calculados ahora hay que hacer calculos de posiciones
-            for (int particula = 0; particula < N; particula++){
+            // Paralelizamos
+            int particula, dimension;
+            #pragma omp parallel for private(dimension) reduction(+:energiaCinetica) 
+            for (particula = 0; particula < N; particula++){
                 Verlet(L ,deltaT, dim, N, particula, R, Ranterior, V, Vanterior, F, Fanterior, Tf, M, phiLangevin, gammaLangevin, Tv);
                 
                 // Calculamos la energía cinética total
-                for (int dimension = 0; dimension < dim; dimension++){
+                for (dimension = 0; dimension < dim; dimension++){
                     energiaCinetica += 0.5 * V[dimension][particula] * V[dimension][particula] / M[0][particula] ;
                 }
             }
 
             // Calculamos la presión del sistema:
-            tempInstantanea = energiaCinetica / ( kb * (3*N - 3) );
+            tempInstantanea = 2 * energiaCinetica / ( kb * (3*N - 3) );
             presionTotal    = ( ( tempInstantanea * N * kb ) / ( L*L*L ) ) + ( 1 / (3 * L*L*L ) ) * virialSinCinetica ;
 
         }
-        // Guardamos las energias totales
-        fprintf(energiaArchivo, "%f\n", energiaPotencial + energiaCinetica);
 
-        // Guardamos la presión total
-        fprintf(presionArchivo, "%f\n", presionTotal);
+        // Guardado de datos en la simulación normal
+        if( iter > tMinimizacion && iter % muestreo == 0)
+        {   
+            // Guardamos las energias totales
+            fprintf(energiaArchivo, "%f\n", energiaPotencial + energiaCinetica);
+            
+            // Guardamos la presión total
+            fprintf(presionArchivo, "%f\n", presionTotal);
 
-        // Imprimimos el progreso cada 1% (evitando división por cero)
+            // Guardamos la temperatura instantanea
+            fprintf(temperaturaArchivo, "%f\n", tempInstantanea);
+
+            virialPromedio += virialSinCinetica;
+
+            // Calculo de valores estadisticos:
+            presionMedia           += presionTotal;
+            presionCuadraticaMedia += presionTotal * presionTotal;
+            
+        }
+        else if( iter < tMinimizacion && iter % muestreoMinimizacion == 0 ){
+            // Guardamos las energias totales
+            fprintf(energiaArchivo, "%f\n", energiaPotencial + energiaCinetica);
+        }
+
+        // Guardado de pasos temporales
+        if (iter % tGuardado == 0){
+
+            salidaOvito(N, dim, (double)iter*deltaT, R, "output/posicionT.xyz");
+        }
+        
+        // Imprimimos el progreso cada 1%
         if(pasosT > 0 && iter % (pasosT/100 + 1) == 0){
             printf("Progreso: %d%%\n", (int)((iter * 100) / pasosT));
         }
     }
 
+    // Guardamos la presion media final
+    fprintf(presionMediaArchivo, "%f %f\n", presionCuadraticaMedia / (pasosT - tMinimizacion) * muestreo, presionMedia / (pasosT - tMinimizacion) * muestreo);
+    printf("Virial: %f\n", virialPromedio/((pasosT-tMinimizacion)/muestreo));
+    
     // Cerramos los archivos
     CierreArchivo(energiaArchivo);
     CierreArchivo(presionArchivo);
+    CierreArchivo(temperaturaArchivo);
+    CierreArchivo(presionMediaArchivo);
 
+    // Cerramos el tiempo en cuanto tardó
+    double end_time = omp_get_wtime();
+    printf("Tiempo total: %.2f segundos\n", end_time - start_time);
     
     finalize_random();
     return 0;

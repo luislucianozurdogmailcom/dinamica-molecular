@@ -3,14 +3,13 @@ from ovito.vis import Viewport, CoordinateTripodOverlay, ViewportOverlay, TextLa
 import OpenGL.GL as gl
 import os
 from utils.convertidor_a_mp4 import convert_to_mp4
+import sys
+import numpy as np
+import matplotlib.pyplot as plt
 
 '''
 Parte que grafica la energia
 '''
-
-import sys
-import numpy as np
-import matplotlib.pyplot as plt
 
 fn = "output/energia.dat"
 
@@ -20,8 +19,15 @@ with open("input/deltaT", "r") as f:
 with open("input/deltaTMinimizacion", "r") as f:
     deltaTMinimizacion = float(f.read().strip())
     
+with open("input/muestreo", "r") as f:
+    muestreo = int(f.read().strip())
+
+with open("input/muestreoMinimizacion", "r") as f:
+    muestreoMinimizacion = int(f.read().strip())
+
 with open("input/tMinimizacion", "r") as f:
-    tMinimizacion = int(f.read().strip())
+    tMinimizacion = int(int(f.read().strip()) / muestreoMinimizacion)
+
 try:
     data = np.loadtxt(fn)
 except Exception as e:
@@ -30,10 +36,10 @@ except Exception as e:
 
 # detectar columnas: si hay >=2 columnas, usar primera como x y segunda como y; si sólo hay 1, usar índice como x
 if data.ndim == 1:
-    y_minimizacion = data[100:tMinimizacion]
-    x_minimizacion = np.arange(len(y_minimizacion)) * deltaTMinimizacion
+    y_minimizacion = data[:tMinimizacion]
+    x_minimizacion = np.arange(len(y_minimizacion)) * deltaTMinimizacion * muestreoMinimizacion
     y              = data[tMinimizacion:]
-    x              = np.arange(len(y)) * deltaT + max(x_minimizacion)
+    x              = np.arange(len(y)) * deltaT * muestreo + max(x_minimizacion)
 
 # Para concatenar vectores 
 x_final = np.concatenate([x_minimizacion, x])
@@ -42,15 +48,15 @@ y_final = np.concatenate([y_minimizacion, y])
 # Para gráficos
 mean    = np.mean(y)
 std     = np.std(y)
-ymin    = -np.abs(mean*1.5)
-ymax    = np.abs(mean*1.5)
+ymin    = -np.abs(mean*1.5)-np.abs(std);
+ymax    = np.abs(mean*1.5)+np.abs(std);
 
 plt.figure(figsize=(8, 4.5), dpi = 300)
 plt.plot(x_final, y_final, '-', markersize=3)
 plt.axhline(y=mean, color='red', linestyle='--', linewidth=1, label=f'Mean = {mean:.2f}, Std: {std:.3f}')
-plt.xlabel('Pasos temporales' if data.ndim == 1 or data.shape[1] == 1 else 'columna 1')
-plt.ylabel('Energía (columna 2)' if data.ndim > 1 and data.shape[1] > 1 else 'Energía')
-plt.title('Energía — archivo: ' + fn)
+plt.xlabel('Tiempo')
+plt.ylabel('Energia')
+plt.title('Energía vs Tiempo')
 plt.ylim(ymin, ymax)
 plt.grid(True)
 plt.legend()
@@ -62,10 +68,6 @@ plt.savefig("output/energia.pdf")
 Parte que grafica la presion
 '''
 
-import sys
-import numpy as np
-import matplotlib.pyplot as plt
-
 fn = "output/presion.dat"
 
 try:
@@ -76,32 +78,64 @@ except Exception as e:
 
 # detectar columnas: si hay >=2 columnas, usar primera como x y segunda como y; si sólo hay 1, usar índice como x
 if data.ndim == 1:
-    y_minimizacion = data[100:tMinimizacion]
-    x_minimizacion = np.arange(len(y_minimizacion)) * deltaTMinimizacion
-    y              = data[tMinimizacion:]
-    x              = np.arange(len(y)) * deltaT + max(x_minimizacion)
-
-# Para concatenar vectores 
-x_final = np.concatenate([x_minimizacion, x])
-y_final = np.concatenate([y_minimizacion, y])
+    y = data;
+    x = np.arange(len(y)) * deltaT * muestreo
 
 # Para gráficos
 mean    = np.mean(y)
 std     = np.std(y)
-ymin    = -np.abs(mean*1.5)
-ymax    = np.abs(mean*1.5)
+ymin    = -np.abs(mean*1.5)-np.abs(std);
+ymax    = np.abs(mean*1.5)+np.abs(std);
 
 plt.figure(figsize=(8, 4.5), dpi = 300)
-plt.plot(x_final, y_final, '-', markersize=3)
-plt.axhline(y=mean, color='red', linestyle='--', linewidth=1, label=f'Mean = {mean:.4f}, Std: {std:.4f}')
-plt.xlabel('Pasos temporales' if data.ndim == 1 or data.shape[1] == 1 else 'columna 1')
-plt.ylabel('Energía (columna 2)' if data.ndim > 1 and data.shape[1] > 1 else 'Energía')
-plt.title('Energía — archivo: ' + fn)
+plt.plot(x, y, '-', markersize=3)
+plt.axhline(y=mean, color='red', linestyle='--', linewidth=1, label=f'Mean = {mean:.5f}, Std: {std:.5f}')
+plt.xlabel('Tiempo')
+plt.ylabel('Presion')
+plt.title('Presion vs Tiempo')
 plt.ylim(ymin, ymax)
 plt.grid(True)
 plt.legend()
 plt.tight_layout()
 plt.savefig("output/presion.pdf")
+
+
+'''
+Parte que grafica la Temperatura
+'''
+
+fn = "output/temperatura.dat"
+
+try:
+    data = np.loadtxt(fn)
+except Exception as e:
+    print(f"Error al leer '{fn}': {e}", file=sys.stderr)
+    sys.exit(1)
+
+# detectar columnas: si hay >=2 columnas, usar primera como x y segunda como y; si sólo hay 1, usar índice como x
+if data.ndim == 1:
+    y = data;
+    x = np.arange(len(y)) * deltaT * muestreo
+
+# Para gráficos
+mean    = np.mean(y)
+std     = np.std(y)
+ymin    = -np.abs(mean*1.5)-np.abs(std);
+ymax    = np.abs(mean*1.5)+np.abs(std);
+
+plt.figure(figsize=(8, 4.5), dpi = 300)
+plt.plot(x, y, '-', markersize=3)
+plt.axhline(y=mean, color='red', linestyle='--', linewidth=1, label=f'Mean = {mean:.4f}, Std: {std:.4f}')
+plt.xlabel('Tiempo')
+plt.ylabel('Temperatura')
+plt.title('Temperatura vs Tiempo')
+plt.ylim(ymin, ymax)
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.savefig("output/temperatura.pdf")
+
+
 
 # Graficamos el video
 # ===== CONFIGURACIÓN =====
@@ -147,12 +181,13 @@ vp.overlays.append(tripod)
 
 
 output_path = os.path.join(output_dir, f"animation.mp4")
-print(f"Renderizando video → {output_path}")
-vp.render_anim(size=(800,600), filename=output_path, fps=20)
+
+#print(f"Renderizando video → {output_path}")
+#vp.render_anim(size=(800,600), filename=output_path, fps=20)
 
 
-print("\n✅ Renderización completa.")
-print(f"Video guardado en: {os.path.abspath(output_dir)}")
+#print("\n✅ Renderización completa.")
+#print(f"Video guardado en: {os.path.abspath(output_dir)}")
 
 # Convertimos el video
 '''

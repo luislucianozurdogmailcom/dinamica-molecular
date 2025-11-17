@@ -118,32 +118,32 @@ char* NombreArchivo(char *texto, double T, int iteracion);
 // Calculo del coeficiente del termostato de Langevin
 double* coeficienteLangevin(int N, double gamma, double T, double deltaT, double** m);
     
-double VirialSinCinetica(int dim, int particula1, int particula2, double*** tensorFuerzas, double** tensorDistancias);
+double VirialSinCinetica(int dim, int particula1, int particula2, double*** tensorFuerzas, double*** tensorPosiciones);
 
 //------------------ OPTIMIZACIÓN -------------------------------
-//typedef struct {
-//    int nCells;          // ¿En cuántas partes divido cada lado? (ej: 10 celdas por lado)
-//    int totalCells;      // Total de celdas (10×10×10 = 1000 celdas en 3D)
-//    double cellSize;     // Tamaño de cada celda (L/nCells)
-//    int* cellHead;       // "Puerta" de entrada a cada celda
-//    int* cellList;       // "Cadena" que conecta partículas
-//    int** neighborCells; // Lista de celdas vecinas de cada celda
-//    int* numNeighbors;   // Cuántas vecinas tiene cada celda
-//} CellList;
-//
-//// Funciones del cell-list
-//CellList* CrearCellList(int N, double L, double reff, int dim);
-//
-//// Función que libera memoria
-//void LiberarCellList(CellList* cellList);
-//
-//// Función que actuliza la lista de celdas
-//void ActualizarCellList(CellList* cellList, double** R, int N, int dim, double L);
-//
-//// Función que obtiene en que celda está una partícula
-//int ObtenerIndiceCelda(double* posicion, CellList* cellList, int dim, double L);
-//
-//// Construye la lista de vecinos de cada 
-//void ConstruirListaVecinos(CellList* cellList, int dim);
+typedef struct{
+    int nCells;          // ¿En cuántas partes divido cada lado? (ej: 10 celdas por lado)
+    int totalCells;      // Total de celdas (10×10×10 = 1000 celdas en 3D)
+    double cellSize;     // Tamaño de cada celda (L/nCells)
+    int* cellHead;       // "Puerta" de entrada a cada celda
+    int* cellList;       // "Cadena" que conecta partículas
+    int** neighborCells; // Lista de celdas vecinas de cada celda
+    int* numNeighbors;   // Cuántas vecinas tiene cada celda
+} CellList;
+
+// Funciones del cell-list
+CellList* CrearCellList(int N, double L, double reff, int dim);
+
+// Función que libera memoria
+void LiberarCellList(CellList* cellList);
+
+// Función que actuliza la lista de celdas
+void ActualizarCellList(CellList* cellList, double** R, int N, int dim, double L);
+
+// Función que obtiene en que celda está una partícula
+int ObtenerIndiceCelda(double* posicion, CellList* cellList, int dim, double L);
+
+// Construye la lista de vecinos de cada 
+void ConstruirListaVecinos(CellList* cellList, int dim);
 
 #endif

@@ -682,20 +682,169 @@ double* coeficienteLangevin(int N, double gamma, double T, double deltaT, double
     return phi;
 }
 
-double VirialSinCinetica(int dim, int particula1, int particula2, double*** tensorFuerzas, double** tensorDistancias){
+double VirialSinCinetica(int dim, int particula1, int particula2, double*** tensorFuerzas, double*** tensorPosiciones){
     // Función que calcula la distancia por la fuerza total en todas las dimensiones para dos partículas
 
-    double fuerzaTotal = 0;
+    double productoPunto = 0;
 
     for (int k = 0; k < dim; k++){
-        fuerzaTotal +=  tensorFuerzas[particula1][particula2][k] * tensorFuerzas[particula1][particula2][k];
+        productoPunto += - tensorFuerzas[particula1][particula2][k] * tensorPosiciones[particula1][particula2][k];
     }
 
-    // Modulo del vector fuerza entre dos partículas
-    fuerzaTotal = sqrt(fuerzaTotal);
-
     // parte virial
-    return tensorDistancias[particula1][particula2] * fuerzaTotal;
+    return productoPunto;
 }
 
 // ---------------------- Optimizaciones ------------------------------------
+// SOLO PARA SIMULACIONES 3D, 2D Y 1D
+
+// Funciones del cell-list
+CellList* CrearCellList(int N, double L, double reff, int dim){
+     CellList* cellList = malloc(sizeof(CellList));
+
+    // Numero de celdas = L / reff ()
+    cellList->nCells = (int)(L/reff); 
+
+    // Si la cantidad de celdas es menor a 3, ponemos 3
+    if(cellList->nCells < 3) cellList->nCells = 3;
+
+    cellList->cellSize = L / cellList->nCells;
+
+    // Calcular el total de celdas según dimensiónes
+    cellList->totalCells = (int)pow((double)cellList->nCells, dim);
+
+    // Reservamos memoria
+
+    // Lista de celda totales
+    cellList->cellHead = malloc(cellList->totalCells * sizeof(int));
+    
+    // Lista de partículas totales
+    cellList->cellList = malloc(N * sizeof(int));
+
+    // Inicializamos con -1 (celda vacia)
+    for (int i = 0; i < cellList->totalCells; i++){
+        cellList->cellHead[i] = -1;
+    }
+
+    ConstruirListaVecinos(cellList, dim);
+    
+    return cellList;
+}
+
+// Función que libera memoria
+void LiberarCellList(CellList* cellList);
+
+// Función que actuliza la lista de celdas
+void ActualizarCellList(CellList* cellList, double** R, int N, int dim, double L){
+    // Reseteamos todas las celdas
+    for (int i=0; i < cellList->totalCells; i++){
+        cellList->cellHead[i] = -1;
+    }
+
+    // Asignamos cada partícula a su celda
+    double posicion[dim];
+    for (int i = 0; i < N; i++){
+        
+        for (int j = 0; j < N; j++){
+            posicion[j] = R[j][i];
+        }
+
+        int cellIdx = ObtenerIndiceCelda(posicion, cellList, dim, L);
+        
+        // Agregar partícula a la lista enlazada
+        cellList->cellList[i]       = cellList->cellHead[cellIdx];
+        cellList->cellHead[cellIdx] = i;
+    }
+}
+
+// Función que obtiene en que celda está una partícula
+int ObtenerIndiceCelda(double* posicion, CellList* cellList, int dim, double L){
+    int* dimension = malloc(dim * sizeof(int));
+    int indice     = 0;
+    
+    for (int i = 0; i < dim; i++){
+        dimension[i] = (int)(posicion[i] / cellList->cellSize);
+
+        // Si se sale de las dimnesiones de las cajas, los limitamos
+        if(dimension[i] < 0) dimension[i] = 0;
+        if(dimension[i] >= cellList->nCells) dimension[i] = cellList->nCells - 1;
+
+        // calculamos el índice como 1*x + nCells * Y + nCells * nCells * Z 
+        indice += pow(cellList->nCells, i) * dimension[i];
+    }
+    
+    // Retornamos índice según la dimensión
+    return indice;
+}
+
+// Construye la lista de vecinos de cada 
+void ConstruirListaVecinos(CellList* cellList, int dim){
+int nCells = cellList->nCells;
+    
+    cellList->neighborCells = (int**)malloc(cellList->totalCells * sizeof(int*));
+    cellList->numNeighbors = (int*)malloc(cellList->totalCells * sizeof(int));
+    
+    for (int cellIdx = 0; cellIdx < cellList->totalCells; cellIdx++) {
+        // Máximo vecinos: 27 (3D), 9 (2D), 3 (1D)
+        int maxNeighbors = (dim == 3) ? 27 : (dim == 2) ? 9 : 3;
+        cellList->neighborCells[cellIdx] = (int*)malloc(maxNeighbors * sizeof(int));
+        cellList->numNeighbors[cellIdx] = 0;
+        
+        // Obtener coordenadas de la celda
+        int ix, iy, iz;
+        if (dim == 3) {
+            ix = cellIdx % nCells;
+            iy = (cellIdx / nCells) % nCells;
+            iz = cellIdx / (nCells * nCells);
+        } else if (dim == 2) {
+            ix = cellIdx % nCells;
+            iy = cellIdx / nCells;
+            iz = 0;
+        } else {
+            ix = cellIdx;
+            iy = 0;
+            iz = 0;
+        }
+        
+        // Buscar celdas vecinas (incluye la misma celda)
+        for (int dz = -1; dz <= 1; dz++) {
+            if (dim < 3 && dz != 0) continue;
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dim < 2 && dy != 0) continue;
+                for (int dx = -1; dx <= 1; dx++) {
+                    // Condiciones periódicas
+                    int nx = (ix + dx + nCells) % nCells;
+                    int ny = (iy + dy + nCells) % nCells;
+                    int nz = (iz + dz + nCells) % nCells;
+                    
+                    int neighborIdx;
+                    if (dim == 3) {
+                        neighborIdx = nx + ny * nCells + nz * nCells * nCells;
+                    } else if (dim == 2) {
+                        neighborIdx = nx + ny * nCells;
+                    } else {
+                        neighborIdx = nx;
+                    }
+                    
+                    cellList->neighborCells[cellIdx][cellList->numNeighbors[cellIdx]] = neighborIdx;
+                    cellList->numNeighbors[cellIdx]++;
+                }
+            }
+        }
+    }
+}
+
+// Liberamos memoria
+void liberarCellList(CellList* cellList) {
+    if (cellList) {
+        free(cellList->cellHead);
+        free(cellList->cellList);
+        free(cellList->numNeighbors);
+        
+        for (int i = 0; i < cellList->totalCells; i++) {
+            free(cellList->neighborCells[i]);
+        }
+        free(cellList->neighborCells);
+        free(cellList);
+    }
+}
