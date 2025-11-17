@@ -35,6 +35,7 @@ int main() {
     double kb                 = LecturaInputDouble("input/kb");                  // Constante de Boltzman
     double temp               = LecturaInputDouble("input/Temp") * epsilon / kb; // Temperatura inicial
     int procesadores          = LecturaInputInt("input/procesadores");           // Procesadores en paralelo
+    int divisionesFuerzas     = LecturaInputInt("input/divisionesFuerzas");      // Cantidad de datos en la tabla precalculada de fuerzas
 
     // Inicializamos los vectores r, v y f
     double** R         = CrearMatriz(N, dim, L, 0); // Vector de posiciones actuales creadas al azar
@@ -87,6 +88,9 @@ int main() {
     double sigmaSeis  = pow(sigma, 6);
     double sigmaDoce  = pow(sigma, 12);
 
+    // Calculamos una lisa de fuerzas ya predefinidas
+    double* listaFuerzas = listaFuerzasEntreParticulas(reff, divisionesFuerzas, sigmaSeis, sigmaDoce, epsilon);
+
     // Abrimos archivos de escritura:
     FILE* energiaArchivo      = AperturaArchivo("output/energia.dat");
     FILE* presionArchivo      = AperturaArchivo("output/presion.dat");
@@ -131,18 +135,20 @@ int main() {
                     // Potencial de Lennard-Jones
                     energiaPotencial += PotencialLJ(epsilon, sigma, Td[particula1][particula2], potencialCut, sigmaSeis, sigmaDoce);
 
-                    if (iter % listaVecinos == 0){
-                        Tv[particula1][particula2] = 1;
-                    }
                 }
-                else if(iter % listaVecinos == 0)
-                {
+
+                // Si estamos a una distancia de 1.5 el radio de cuttoff, cuenta como vecina
+                if (iter % listaVecinos == 0 && reff * 1.5 > Td[particula1][particula2]){
+                    Tv[particula1][particula2] = 1;
+                    Tv[particula2][particula1] = 1;
+                }else{
                     Tv[particula1][particula2] = 0;
+                    Tv[particula2][particula1] = 0;
                 }
 
 
                 // Calculamos las fuerzas entre partículas y se guarda en Tf
-                FuerzasEntreParticulas(particula1, particula2, Tf, Tr, Td, epsilon, sigma, dim, reff, sigmaSeis, sigmaDoce);
+                FuerzasEntreParticulas(particula1, particula2, Tf, Tr, Td, epsilon, sigma, dim, reff, sigmaSeis, sigmaDoce, listaFuerzas, divisionesFuerzas);
                 
                 // Parte del virial sin la energia cinética:
                 virialSinCinetica += VirialSinCinetica(dim, particula1, particula2, Tf, Tr);
