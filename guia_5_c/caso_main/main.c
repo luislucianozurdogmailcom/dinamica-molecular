@@ -103,15 +103,14 @@ int main() {
     // Inicializamos el loop
     for (int iter = 0; iter < pasosT; iter++){
 
-        int particula1, particula2;
-        
         // Reseteamos las energias totales por paso temporal
         energiaPotencial  = 0;
         energiaCinetica   = 0;
         virialSinCinetica = 0;
         presionTotal      = 0;
         tempInstantanea   = 0;
-        
+
+        int particula1, particula2;
 
         // Iteramos por cada par de partículas
         // Paralelizamos
@@ -138,12 +137,18 @@ int main() {
                 }
 
                 // Si estamos a una distancia de 1.5 el radio de cuttoff, cuenta como vecina
-                if (iter % listaVecinos == 0 && reff * 1.5 > Td[particula1][particula2]){
-                    Tv[particula1][particula2] = 1;
-                    Tv[particula2][particula1] = 1;
-                }else{
-                    Tv[particula1][particula2] = 0;
-                    Tv[particula2][particula1] = 0;
+                if (iter % listaVecinos == 0)
+                {
+                    if (reff * 1.5 > Td[particula1][particula2])
+                    {
+                        Tv[particula1][particula2] = 1;
+                        Tv[particula2][particula1] = 1;
+                    }
+                    else
+                    {
+                        Tv[particula1][particula2] = 0;
+                        Tv[particula2][particula1] = 0;
+                    }
                 }
 
 
@@ -204,11 +209,10 @@ int main() {
             // Calculo de valores estadisticos:
             presionMedia           += presionTotal;
             presionCuadraticaMedia += presionTotal * presionTotal;
-            
         }
         else if( iter < tMinimizacion && iter % muestreoMinimizacion == 0 ){
-            // Guardamos las energias totales
-            fprintf(energiaArchivo, "%f\n", energiaPotencial + energiaCinetica);
+            // Guardamos solo la energía potencial durante la minimización
+            fprintf(energiaArchivo, "%f\n", energiaPotencial);
         }
 
         // Guardado de pasos temporales

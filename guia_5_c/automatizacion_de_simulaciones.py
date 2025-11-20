@@ -21,11 +21,10 @@ deltaT     = np.concatenate([
 
 particulas = 200;
 sigma      = 1;
-
-iteraciones = 10;
+iteraciones = 1;
 
 # Número máximo de simulaciones simultáneas
-MAX_THREADS = 8  # Ajusta según los núcleos de tu CPU
+MAX_THREADS = 1  # Ajusta según los núcleos de tu CPU
 
 def ejecutar_simulacion(densidad, n, iteracion, base_dir):
     """
