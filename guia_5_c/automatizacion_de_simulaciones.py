@@ -8,7 +8,7 @@ import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 densidades = np.concatenate([     
-                np.array([0.001, 0.01, 0.1]),
+                np.array([0.001, 0.01]),
                 np.arange(0.1, 0.8 + 0.07, 0.07),
                 np.array([0.9, 1])
             ]);
@@ -25,7 +25,7 @@ sigma      = 1;
 iteraciones = 10;
 
 # Número máximo de simulaciones simultáneas
-MAX_THREADS = 2  # Ajusta según los núcleos de tu CPU
+MAX_THREADS = 8  # Ajusta según los núcleos de tu CPU
 
 def ejecutar_simulacion(densidad, n, iteracion, base_dir):
     """
